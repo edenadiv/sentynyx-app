@@ -1,0 +1,9 @@
+node_modules
+dist
+.DS_Store
+src-tauri/target
+src-tauri/gen
+
+# Staged sidecar binaries — built on demand via scripts/stage-sidecar.sh
+# (or release.yml). Too big to keep in git; binaries/README.md explains.
+src-tauri/binaries/sentynyx-ner-*

@@ -1,0 +1,96 @@
+name: ci-lints
+
+# Baseline correctness gates. Runs on every PR and every push to main.
+# Purpose: catch warnings-turned-errors, type regressions, test breakage,
+# and keybinding cheat-sheet drift at PR time, not at release time.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-lints-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --- Rust: clippy + test ------------------------------------------------
+  rust:
+    runs-on: macos-latest
+    defaults: { run: { working-directory: apps/desktop/src-tauri } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with: { components: clippy }
+      - name: Cargo cache
+        uses: Swatinem/rust-cache@v2
+        with: { workspaces: apps/desktop/src-tauri }
+
+      # tauri-build validates every `externalBin` target-triple path at
+      # cargo-check time. The sidecar binary is gitignored (built by
+      # `cargo build --bin sentynyx-ner` on a dev's machine) so CI's
+      # fresh checkout is missing it, which aborts build.rs with
+      # "resource path '…/sentynyx-ner-aarch64-apple-darwin' doesn't exist".
+      # Tauri only checks file existence, not Mach-O validity, so a
+      # shell-script placeholder is sufficient for clippy+test.
+      - name: Stub sentynyx-ner sidecar for tauri-build
+        working-directory: apps/desktop/src-tauri
+        run: |
+          mkdir -p binaries
+          printf '#!/bin/sh\nexit 0\n' > binaries/sentynyx-ner-aarch64-apple-darwin
+          chmod +x binaries/sentynyx-ner-aarch64-apple-darwin
+      # We run clippy in -W mode (warn, not deny) because the lib has 8
+      # pre-existing style warnings from the v0.2 codebase (enum naming
+      # and a few unused imports). Tightening to -D is a separate ticket —
+      # see docs/eng/clippy-cleanup-ADR.md (to be written). For now we
+      # want clippy catching NEW errors, not retroactively lighting up
+      # every file.
+      - name: clippy
+        run: cargo clippy --all-targets --all-features -- -W warnings
+      - name: cargo test (lib)
+        run: cargo test --lib
+
+  # --- TypeScript: tsc ---------------------------------------------------
+  typescript:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: apps/desktop } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+      - name: tsc --noEmit
+        run: npx tsc --noEmit
+
+  # --- Keybinding registry sync -----------------------------------------
+  # Every <Kb k="..." /> in AboutDialog.tsx must appear as a shortcut in
+  # docs/ux/shortcuts.md §1. Catches the class of bug_014 drift (shortcut
+  # hint in UI references a binding that doesn't exist or isn't in the
+  # registry) at PR time.
+  keybinding-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Extract shortcuts from AboutDialog
+        run: |
+          grep -oE '<Kb k="[^"]+"' apps/desktop/src/scenes/AboutDialog.tsx \
+            | sed -E 's/.*k="([^"]+)".*/\1/' > /tmp/about_shortcuts.txt
+          echo "Shortcuts declared in AboutDialog:"
+          cat /tmp/about_shortcuts.txt
+      - name: Assert each shortcut is in docs/ux/shortcuts.md
+        run: |
+          fail=0
+          while IFS= read -r kb; do
+            if ! grep -qF "$kb" docs/ux/shortcuts.md; then
+              echo "::error::Shortcut '$kb' in AboutDialog.tsx is not listed in docs/ux/shortcuts.md"
+              fail=1
+            fi
+          done < /tmp/about_shortcuts.txt
+          exit $fail

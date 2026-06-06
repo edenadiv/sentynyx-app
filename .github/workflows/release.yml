@@ -1,0 +1,231 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  # -----------------------------------------------------------------------
+  # macOS signed + notarized build
+  # -----------------------------------------------------------------------
+  #
+  # Required GitHub repo secrets (all must be set for a signed/notarized
+  # release; otherwise the job still builds but produces an unsigned .dmg):
+  #
+  #   APPLE_CERTIFICATE         Base64-encoded .p12 of the "Developer ID
+  #                             Application" cert (export from Keychain Access
+  #                             → right-click → Export → .p12, then
+  #                             `base64 -i cert.p12 | pbcopy`).
+  #   APPLE_CERTIFICATE_PASSWORD The password used when exporting the .p12.
+  #   APPLE_SIGNING_IDENTITY     e.g. "Developer ID Application: Your Name (TEAMID)".
+  #                             Tauri reads this to pick the cert.
+  #   APPLE_ID                  Apple ID email used for notarization.
+  #   APPLE_PASSWORD            App-specific password (appleid.apple.com →
+  #                             Sign-In & Security → App-Specific Passwords).
+  #   APPLE_TEAM_ID             10-char team identifier from developer.apple.com/account.
+  #
+  # If any are missing the "Import signing cert" step becomes a no-op and the
+  # build falls back to ad-hoc signing. The resulting .dmg will open with a
+  # Gatekeeper warning on users' Macs — acceptable for internal pre-release
+  # testing, not for public distribution.
+  # -----------------------------------------------------------------------
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (with universal-apple-darwin targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+
+      - name: Install deps
+        working-directory: apps/desktop
+        run: pnpm install --frozen-lockfile
+
+      # -- Verify vendored ORT dylib is present ---------------------------
+      - name: Check vendored ORT dylib
+        run: |
+          test -f apps/desktop/vendor/onnxruntime/mac-universal/libonnxruntime.1.22.0.dylib \
+            || (echo "Missing vendored ONNX Runtime dylib. See apps/desktop/vendor/README.md"; exit 1)
+
+      # -- Build + stage the NER sidecar for externalBin ------------------
+      - name: Build sentynyx-ner sidecar (universal)
+        working-directory: apps/desktop/src-tauri
+        run: |
+          cargo build --release --bin sentynyx-ner --target aarch64-apple-darwin
+          cargo build --release --bin sentynyx-ner --target x86_64-apple-darwin
+          mkdir -p binaries
+          lipo -create \
+            -output binaries/sentynyx-ner-universal-apple-darwin \
+            target/aarch64-apple-darwin/release/sentynyx-ner \
+            target/x86_64-apple-darwin/release/sentynyx-ner
+          # Tauri 2 expects the exact triple-suffixed filename matching the
+          # main build target. Mirror for both single-arch triples too so
+          # non-universal local builds also work.
+          cp target/aarch64-apple-darwin/release/sentynyx-ner binaries/sentynyx-ner-aarch64-apple-darwin
+          cp target/x86_64-apple-darwin/release/sentynyx-ner binaries/sentynyx-ner-x86_64-apple-darwin
+
+      # -- Import signing cert into a throwaway keychain ------------------
+      # Skipped gracefully if APPLE_CERTIFICATE isn't set in repo secrets.
+      - name: Import Apple signing cert
+        if: env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p runnerpass build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p runnerpass build.keychain
+          security import /tmp/cert.p12 -k build.keychain \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: -s -k runnerpass build.keychain
+          security list-keychains -d user -s build.keychain $(security list-keychains -d user | xargs)
+          rm -f /tmp/cert.p12
+
+      # -- Build + sign (Tauri runs codesign automatically when env is set) ---
+      - name: Tauri build (signed if APPLE_SIGNING_IDENTITY is set)
+        working-directory: apps/desktop
+        env:
+          # Set SENTYNYX_ORT_BUNDLED so build.rs picks @executable_path paths.
+          SENTYNYX_ORT_BUNDLED: "1"
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: pnpm tauri build --target universal-apple-darwin
+
+      # -- Notarize via Apple's notarytool --------------------------------
+      # Only runs when Apple credentials are present. `notarytool` uploads
+      # the DMG, waits for Apple's notary service, then we staple the
+      # ticket so the app opens offline without Gatekeeper complaints.
+      - name: Notarize DMG
+        if: env.APPLE_ID != ''
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -e
+          DMG=$(ls apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -n1)
+          echo "Notarizing $DMG"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple "$DMG"
+          spctl --assess --type execute --verbose "${DMG%.dmg}.app" 2>&1 || true
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentynyx-macos
+          path: |
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/**/*.dmg
+            apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/**/*.app.tar.gz
+
+  # -----------------------------------------------------------------------
+  # Windows signed build (Phase 4 — v0.3 fundraise scope)
+  # -----------------------------------------------------------------------
+  #
+  # Required secrets (omit for unsigned builds — will trip SmartScreen):
+  #   WINDOWS_CERTIFICATE          Base64 of the .pfx EV code-signing cert.
+  #   WINDOWS_CERTIFICATE_PASSWORD Password for the .pfx.
+  #
+  # The EV cert itself is a one-time procurement (~$400/year via DigiCert
+  # or Sectigo). Ship this job as-is until the cert is acquired; the
+  # `signingIdentity` guard lets it produce an unsigned MSI/EXE pair that's
+  # fine for CI validation but SmartScreen-flagged on end users' machines.
+  # -----------------------------------------------------------------------
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 9 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+
+      - name: Install deps
+        working-directory: apps/desktop
+        run: pnpm install --frozen-lockfile
+
+      # -- Verify vendored ORT DLL is present -----------------------------
+      - name: Check vendored ORT DLL
+        shell: pwsh
+        run: |
+          if (-not (Test-Path apps/desktop/vendor/onnxruntime/win-x64/onnxruntime.dll)) {
+            Write-Error "Missing vendored ONNX Runtime DLL. See apps/desktop/vendor/onnxruntime/win-x64/README.md"
+            exit 1
+          }
+
+      # -- Build the NER sidecar for externalBin --------------------------
+      - name: Build sentynyx-ner sidecar
+        working-directory: apps/desktop/src-tauri
+        shell: pwsh
+        run: |
+          cargo build --release --bin sentynyx-ner
+          New-Item -ItemType Directory -Path binaries -Force
+          Copy-Item target/release/sentynyx-ner.exe `
+            binaries/sentynyx-ner-x86_64-pc-windows-msvc.exe
+
+      # -- Import signing cert into a temporary store ---------------------
+      - name: Import Windows signing cert
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx",
+            [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $pw = ConvertTo-SecureString $env:WINDOWS_CERTIFICATE_PASSWORD -AsPlainText -Force
+          Import-PfxCertificate -FilePath $env:RUNNER_TEMP\cert.pfx `
+            -CertStoreLocation Cert:\CurrentUser\My -Password $pw | Out-Null
+          Remove-Item $env:RUNNER_TEMP\cert.pfx
+
+      # -- Build (signing + MSI + NSIS) -----------------------------------
+      - name: Tauri build
+        working-directory: apps/desktop
+        shell: pwsh
+        env:
+          SENTYNYX_ORT_BUNDLED: "1"
+          TAURI_SIGNING_CERTIFICATE_THUMBPRINT: ${{ secrets.WINDOWS_CERTIFICATE_THUMBPRINT }}
+        run: pnpm tauri build
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentynyx-windows
+          path: |
+            apps/desktop/src-tauri/target/release/bundle/msi/*.msi
+            apps/desktop/src-tauri/target/release/bundle/nsis/*.exe
+
+  # -----------------------------------------------------------------------
+  # Linux build — deferred to v0.4. See the v0.3 roadmap doc for rationale.
+  # -----------------------------------------------------------------------
+  # build-linux:
+  #   runs-on: ubuntu-22.04
+  #   ...

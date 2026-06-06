@@ -1,0 +1,51 @@
+name: ci-feature-matrix
+
+# Keeps the open-core feature gate from rotting: the app must compile AND pass
+# tests both as the public build (default features, no team-cloud) and as the
+# commercial build (--features team-cloud). A command registered in one
+# invoke_handler list but not the other, or a dangling reference behind a cfg,
+# fails here before it can ship.
+
+on:
+  pull_request:
+    paths:
+      - "apps/desktop/src-tauri/**"
+      - ".github/workflows/ci-feature-matrix.yml"
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-feat-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "public (default)", features: "" }
+          - { name: "commercial (team-cloud)", features: "team-cloud" }
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+      # The lib links the NER sidecar's target-triple binary at bundle time, but
+      # `cargo test --lib` doesn't need a real one — stub it so the build resolves.
+      - name: Stub NER sidecar
+        run: |
+          mkdir -p apps/desktop/src-tauri/binaries
+          printf '#!/bin/sh\nexit 0\n' > apps/desktop/src-tauri/binaries/sentynyx-ner-aarch64-apple-darwin
+          chmod +x apps/desktop/src-tauri/binaries/sentynyx-ner-aarch64-apple-darwin
+      - name: cargo test (lib)
+        working-directory: apps/desktop/src-tauri
+        run: |
+          if [ -n "${{ matrix.features }}" ]; then
+            cargo test --lib --features "${{ matrix.features }}"
+          else
+            cargo test --lib
+          fi

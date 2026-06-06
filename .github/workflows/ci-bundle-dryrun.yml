@@ -1,0 +1,127 @@
+name: ci-bundle-dryrun
+
+# Validates every asset path referenced by tauri.conf.json actually
+# exists in the repo, and that the project compiles on both macOS and
+# Windows runners. Catches the class of bug_001 — a config file
+# references `icons/icon.ico` but no such file exists — at PR time
+# instead of at `tauri build` time on tag push.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/desktop/src-tauri/**'
+      - 'apps/desktop/vendor/**'
+      - 'apps/desktop/src/**'
+      - 'apps/desktop/package.json'
+      - 'apps/desktop/pnpm-lock.yaml'
+      - '.github/workflows/ci-bundle-dryrun.yml'
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-bundle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --- Config asset sanity -----------------------------------------------
+  # Fast first line of defense: JSON-parse tauri.conf.json, stat every
+  # path it references. Takes ~1s and catches bug_001 without spinning
+  # up a full Tauri build. Runs before the heavy platform builds.
+  config-assets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stat every asset referenced by tauri.conf.json
+        run: |
+          cd apps/desktop/src-tauri
+          node <<'EOF'
+          const fs = require("fs");
+          const path = require("path");
+
+          const conf = JSON.parse(fs.readFileSync("tauri.conf.json", "utf8"));
+          const bundle = conf.bundle || {};
+          const refs = [];
+
+          // Top-level icon array — cross-platform.
+          for (const p of bundle.icon || []) refs.push(["bundle.icon", p]);
+
+          // macOS: frameworks + entitlements.
+          for (const p of bundle.macOS?.frameworks || []) {
+            refs.push(["bundle.macOS.frameworks", p]);
+          }
+          if (bundle.macOS?.entitlements) {
+            refs.push(["bundle.macOS.entitlements", bundle.macOS.entitlements]);
+          }
+
+          // Windows: NSIS + WiX.
+          if (bundle.windows?.nsis?.installerIcon) {
+            refs.push(["bundle.windows.nsis.installerIcon", bundle.windows.nsis.installerIcon]);
+          }
+          for (const p of bundle.windows?.wix?.fragmentPaths || []) {
+            refs.push(["bundle.windows.wix.fragmentPaths", p]);
+          }
+
+          // externalBin — Tauri resolves these with a target triple suffix,
+          // so we only verify the parent directory exists. Full check lives
+          // in the Rust/TS build jobs below.
+          for (const p of bundle.externalBin || []) {
+            refs.push(["bundle.externalBin (parent)", path.dirname(p)]);
+          }
+
+          let fail = false;
+          for (const [key, p] of refs) {
+            const full = path.resolve(".", p);
+            if (!fs.existsSync(full)) {
+              console.error(`::error::${key} references ${p} but ${full} does not exist`);
+              fail = true;
+            } else {
+              console.log(`OK  ${key}: ${p}`);
+            }
+          }
+          process.exit(fail ? 1 : 0);
+          EOF
+
+  # --- Rust check on macOS -----------------------------------------------
+  cargo-check-macos:
+    needs: config-assets
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: apps/desktop/src-tauri }
+
+      # See ci-lints.yml for the rationale. tauri-build validates
+      # externalBin presence at cargo-check time, and the sidecar is
+      # gitignored.
+      - name: Stub sentynyx-ner sidecar for tauri-build
+        working-directory: apps/desktop/src-tauri
+        run: |
+          mkdir -p binaries
+          printf '#!/bin/sh\nexit 0\n' > binaries/sentynyx-ner-aarch64-apple-darwin
+          chmod +x binaries/sentynyx-ner-aarch64-apple-darwin
+
+      - name: cargo check
+        working-directory: apps/desktop/src-tauri
+        run: cargo check --all-targets
+
+  # --- Rust check on Windows (DISABLED) ---------------------------------
+  # Windows CI was aspirational (phase 4 scaffolded icons; phase 5
+  # added cargo-check-windows) but is intentionally disabled per
+  # CHANGELOG v0.2.0 Known limitations: libonnxruntime.dll is not
+  # yet committed. Re-enable by uncommenting the block below once
+  # the vendored .dll lands.
+  #
+  # cargo-check-windows:
+  #   needs: config-assets
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: dtolnay/rust-toolchain@stable
+  #     - uses: Swatinem/rust-cache@v2
+  #       with: { workspaces: apps/desktop/src-tauri }
+  #     - name: cargo check
+  #       working-directory: apps/desktop/src-tauri
+  #       shell: pwsh
+  #       run: cargo check --all-targets

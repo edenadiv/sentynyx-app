@@ -1,0 +1,78 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Sentynyx",
+  "version": "0.4.0",
+  "identifier": "com.sentynyx.app",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "plugins": {
+    "updater": {
+      "active": false,
+      "comment-active": "Auto-update is off for the open-source release. To enable: run `tauri signer generate`, set the pubkey below, flip bundle.createUpdaterArtifacts to true, and publish a latest.json with each GitHub release.",
+      "endpoints": [
+        "https://github.com/edenadiv/sentynyx-app/releases/latest/download/latest.json"
+      ],
+      "pubkey": "REPLACE_WITH_TAURI_SIGNER_PUBLIC_KEY"
+    }
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Sentynyx",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 1100,
+        "minHeight": 700,
+        "decorations": true,
+        "transparent": false,
+        "backgroundColor": "#05060a"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "copyright": "© 2026 Sentynyx",
+    "category": "Productivity",
+    "shortDescription": "Local-first privacy perimeter for LLMs",
+    "longDescription": "Sentynyx routes every prompt through the Vendetta perimeter — a realtime PII / sensitive-info detector that aliases sensitive tokens locally before the payload reaches any third-party model. Bring your own keys, run models offline via Ollama, or use the bundled on-device model.",
+    "externalBin": [
+      "binaries/sentynyx-ner"
+    ],
+    "createUpdaterArtifacts": false,
+    "macOS": {
+      "frameworks": [
+        "../vendor/onnxruntime/mac-universal/libonnxruntime.1.22.0.dylib"
+      ],
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.plist",
+      "minimumSystemVersion": "12.0"
+    },
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://timestamp.digicert.com",
+      "wix": {
+        "language": ["en-US"]
+      },
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "installMode": "perMachine"
+      }
+    }
+  }
+}

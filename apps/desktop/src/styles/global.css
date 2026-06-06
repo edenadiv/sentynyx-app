@@ -1,0 +1,166 @@
+:root {
+  --bg-0:#05060a;
+  --bg-1:#0a0c14;
+  --bg-2:#10131c;
+  --ink-0:#f5f6fb;
+  --ink-1:#c9cdda;
+  --ink-2:#8b91a6;
+  --ink-3:#5a607a;
+  --line: rgba(255,255,255,0.08);
+  --line-2: rgba(255,255,255,0.04);
+  --neon:#f2ff2b;
+  --neon-soft:#eaff48;
+  --neon-glow: 0 0 24px rgba(242,255,43,0.55), 0 0 2px rgba(242,255,43,0.9);
+  --danger:#ff5577;
+  --good:#6effb0;
+}
+* { box-sizing:border-box; }
+html,body { margin:0; padding:0; background:var(--bg-0); color:var(--ink-0);
+  font-family:'Inter',system-ui,sans-serif; overflow:hidden; height:100%; }
+button { font-family:inherit; color:inherit; }
+::selection { background:var(--neon); color:#000; }
+
+#space { position:fixed; inset:0; z-index:0; pointer-events:none; }
+#space canvas { position:absolute; inset:0; width:100%; height:100%; }
+.nebula {
+  position:absolute; inset:-10%;
+  background:
+    radial-gradient(60% 40% at 20% 20%, rgba(242,255,43,0.05), transparent 60%),
+    radial-gradient(50% 40% at 80% 80%, rgba(100,120,255,0.08), transparent 60%),
+    radial-gradient(30% 20% at 50% 50%, rgba(255,80,140,0.04), transparent 70%);
+  filter: blur(40px);
+  mix-blend-mode: screen;
+  animation: drift 60s ease-in-out infinite alternate;
+}
+@keyframes drift { from { transform:translate(-2%,-1%); } to { transform:translate(2%,1%); } }
+.grid {
+  position:absolute; inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+  background-size:48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+}
+#root { position:relative; z-index:1; height:100vh; width:100vw; display:flex; flex-direction:column; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+@keyframes spin  { to { transform: rotate(360deg); } }
+@keyframes vend-pop {
+  0% { background: rgba(242,255,43,0); box-shadow: 0 0 0 rgba(242,255,43,0); }
+  60% { background: rgba(242,255,43,0.35); box-shadow: 0 0 14px rgba(242,255,43,0.6); }
+  100% { background: rgba(242,255,43,0.18); box-shadow: 0 0 6px rgba(242,255,43,0.25); }
+}
+.vend-hit {
+  position: relative;
+  background: rgba(242,255,43,0.18);
+  color: #f2ff2b;
+  padding: 1px 4px;
+  margin: 0 1px;
+  border-radius: 3px;
+  border-bottom: 1px solid rgba(242,255,43,0.6);
+  box-shadow: 0 0 6px rgba(242,255,43,0.25);
+  animation: vend-pop 0.35s ease-out;
+  text-shadow: 0 0 10px rgba(242,255,43,0.5);
+  transition: background 0.2s;
+}
+.vend-tag { display: none; }
+.vend-hit:hover .vend-tag {
+  display: inline-block; position: absolute; bottom: calc(100% + 6px);
+  left: 50%; transform: translateX(-50%);
+  background: #05060a; color: #f2ff2b;
+  border: 1px solid rgba(242,255,43,0.5);
+  padding: 3px 6px; border-radius: 4px;
+  font-size: 9px; font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 1px; white-space: nowrap;
+  z-index: 20; pointer-events: none;
+  box-shadow: 0 0 12px rgba(242,255,43,0.3);
+}
+.vend-hit::before {
+  content:''; position:absolute; inset:0;
+  background: linear-gradient(90deg, transparent, rgba(242,255,43,0.4), transparent);
+  background-size: 200% 100%;
+  animation: scan 2s linear infinite;
+  mix-blend-mode: overlay;
+  pointer-events:none;
+  border-radius: inherit;
+}
+@keyframes scan { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* NER-detected spans use a teal tint so the user can visually tell regex
+   hits (yellow = Sentynyx neon) from semantic hits (teal = GLiNER). */
+.vend-hit.vend-PERSON_NER,
+.vend-hit.vend-ORG_NER,
+.vend-hit.vend-CODENAME_NER,
+.vend-hit.vend-LOCATION_NER,
+.vend-hit.vend-EMPID_NER {
+  background: rgba(94, 234, 212, 0.20);
+  color: #5eead4;
+  border-bottom-color: rgba(94, 234, 212, 0.6);
+  box-shadow: 0 0 6px rgba(94, 234, 212, 0.25);
+  text-shadow: 0 0 10px rgba(94, 234, 212, 0.5);
+}
+.vend-hit.vend-PERSON_NER::before,
+.vend-hit.vend-ORG_NER::before,
+.vend-hit.vend-CODENAME_NER::before,
+.vend-hit.vend-LOCATION_NER::before,
+.vend-hit.vend-EMPID_NER::before {
+  background: linear-gradient(90deg, transparent, rgba(94, 234, 212, 0.4), transparent);
+}
+
+.caret {
+  display:inline-block; width:8px; height:16px;
+  background: var(--neon);
+  box-shadow: 0 0 8px var(--neon);
+  vertical-align: text-bottom;
+  animation: blink 0.8s steps(2) infinite;
+  margin-left: 2px;
+}
+@keyframes blink { 50% { opacity:0; } }
+
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(242,255,43,0.2); }
+
+button:hover { filter: brightness(1.15); }
+textarea::placeholder { color: rgba(255,255,255,0.25); }
+
+@keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+@keyframes chipIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:translateY(0) } }
+@keyframes excise {
+  0% { transform:scale(1); opacity:1; filter:blur(0) }
+  40% { transform:scale(1.1); filter: blur(0.5px) hue-rotate(30deg); box-shadow: 0 0 20px var(--neon) }
+  100% { transform:scale(0.6) translateY(-10px); opacity:0; filter:blur(2px) }
+}
+@keyframes aliasIn {
+  from { opacity:0; transform:scale(0.7); filter:blur(3px) }
+  to { opacity:1; transform:scale(1); filter:blur(0) }
+}
+@keyframes bootLetter {
+  from { opacity:0; transform:translateY(20px) }
+  to { opacity:1; transform:translateY(0) }
+}
+@keyframes bootLine {
+  from { opacity:0; transform:translateX(-8px) }
+  to { opacity:1; transform:translateX(0) }
+}
+@keyframes shakeIn {
+  0% { opacity:0 }
+  20% { opacity:1; transform:translateX(-6px) }
+  40% { transform:translateX(6px) }
+  60% { transform:translateX(-4px) }
+  80% { transform:translateX(4px) }
+  100% { transform:translateX(0) }
+}
+@keyframes glitchV {
+  0%,100% { transform:translateY(0) }
+  50% { transform:translateY(2px) }
+}
+@keyframes modalIn {
+  from { opacity:0; transform:scale(0.9) }
+  to { opacity:1; transform:scale(1) }
+}
+@keyframes launchUp {
+  from { opacity:1; transform:translate(0,0) scale(1) }
+  to { opacity:0; transform:translate(calc(60vw - 50%), -80vh) scale(0.3) }
+}

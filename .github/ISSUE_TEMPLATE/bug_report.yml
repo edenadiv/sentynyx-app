@@ -1,0 +1,65 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report! For **security** issues, do not file here — see [SECURITY.md](../security/policy).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Settings…
+        2. Select model…
+        3. Send "…"
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which model mode?
+      options:
+        - Cloud (BYOK — OpenAI/Anthropic/Google/xAI)
+        - Ollama (local)
+        - Sentynyx Local (bundled)
+        - Not model-specific
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Sentynyx version
+      description: From the About dialog (⌘⇧I), or the git commit if built from source.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: OS
+      options: [macOS, Windows, Linux]
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Dev Inspector
+      description: |
+        Relevant output. The Dev Inspector (⌘⇧D) shows per-send timings + the aliased payload.
+        ⚠️ Scrub any real secrets before pasting.
+      render: shell
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I have removed any real PII / API keys from this report.
+          required: true

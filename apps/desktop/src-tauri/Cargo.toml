@@ -1,0 +1,114 @@
+[package]
+name = "sentynyx"
+version = "0.4.0"
+edition = "2021"
+default-run = "sentynyx"
+
+[features]
+default = []
+# Team-tier (commercial / closed-source) surface. OFF in the public,
+# open-source build. Pulls in the cloud audit-sync client (`cloud.rs`),
+# Sentry crash telemetry (`telemetry.rs`), and the team `commands::team_*`
+# IPC surface, all of which talk to Sentynyx-hosted infrastructure. The
+# crypto + base64 deps below are only needed to sign the audit envelope,
+# so they're optional and pulled in by this feature.
+#
+# Public build:     cargo build
+# Commercial build: cargo build --features team-cloud
+team-cloud = ["dep:sentry", "dep:ed25519-dalek", "dep:rand", "dep:base64"]
+# Enables integration tests that run real model inference. Each is gated
+# because ORT's Metal teardown races llama.cpp's static destructors at
+# process exit, which SIGABRTs after the tests pass — fine at runtime
+# (process is exiting anyway) but cargo interprets the non-zero exit code
+# as a failure. These live tests live in separate integration binaries
+# so they only link what they use.
+#
+# Run with:
+#     cargo test --test ner_live --features live-ner-test
+#     cargo test --lib --features live-llm-test paranoid_scan
+live-llm-test = []
+live-ner-test = []
+
+[lib]
+name = "sentynyx_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.0", features = [] }
+tauri-plugin-sql = { version = "2.0", features = ["sqlite"] }
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream", "rustls-tls"] }
+futures-util = "0.3"
+bytes = "1"
+regex = "1"
+once_cell = "1"
+sha2 = "0.10"
+hex = "0.4"
+uuid = { version = "1", features = ["v4"] }
+keyring = "3"
+thiserror = "2"
+chrono = { version = "0.4", features = ["serde"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+async-trait = "0.1"
+anyhow = "1"
+libc = "0.2"
+# Process stats (RSS, uptime) for the About dialog. Cross-platform so the
+# same code works on Windows/Linux once Phase 4 lands.
+sysinfo = { version = "0.31", default-features = false, features = ["system"] }
+# Ed25519 signing + base64 wire encoding. Only consumers are `cloud.rs`
+# (team-tier audit sync envelope signing) and the wire-contract test
+# fixture at apps/api/tests/wire/sign_rust.rs — both team-tier surface —
+# so these are `optional` and pulled in only by the `team-cloud` feature.
+# The public open-source build ships with no signing/crypto deps at all.
+# `rand` is needed for nonce generation on the audit-sync path.
+ed25519-dalek = { version = "2", default-features = false, features = ["std", "rand_core"], optional = true }
+rand = { version = "0.8", default-features = false, features = ["std", "std_rng"], optional = true }
+base64 = { version = "0.22", optional = true }
+# Crash + opt-in telemetry (Sentry). Team-tier only — the public build has
+# no telemetry integration compiled in at all (not merely disabled).
+sentry = { version = "0.34", default-features = false, features = ["backtrace", "contexts", "panic", "reqwest", "rustls"], optional = true }
+ort = { version = "=2.0.0-rc.9", default-features = false, features = ["load-dynamic", "ndarray"] }
+ort-sys = { version = "=2.0.0-rc.9", default-features = false }
+tokenizers = { version = "0.20", default-features = false, features = ["onig"] }
+ndarray = "0.16"
+llama-cpp-2 = { version = "0.1", default-features = false }
+
+[dev-dependencies]
+tempfile = "3"
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+# Platform-specific llama-cpp-2 acceleration features.
+#
+# macOS:   Metal (always — M1/M2/Intel Macs all support it).
+# Windows: Vulkan by default (broadest GPU support; works on ~95% of
+#          Windows laptops manufactured in the last 8 years). Falls back
+#          to CPU automatically when no Vulkan-capable GPU is present.
+# Linux:   CPU for now — Phase 3.1 follow-up adds optional `--features cuda`.
+[target.'cfg(target_os = "macos")'.dependencies]
+llama-cpp-2 = { version = "0.1", default-features = false, features = ["metal"] }
+[target.'cfg(target_os = "windows")'.dependencies]
+llama-cpp-2 = { version = "0.1", default-features = false, features = ["vulkan"] }
+
+[[bin]]
+name = "eval"
+path = "eval/src/main.rs"
+
+# NER sidecar — isolates ORT + tokenizer so a panic in spm_precompiled
+# can only crash the sidecar, not the main app. Parent (NerSidecarDetector)
+# respawns it on EOF. Tauri bundles it as `externalBin` into
+# Sentynyx.app/Contents/MacOS/ at release time.
+[[bin]]
+name = "sentynyx-ner"
+path = "src/bin/sentynyx-ner.rs"

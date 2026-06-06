@@ -1,0 +1,2735 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Sentynyx — AI OS for Business</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#05060a;
+    --bg-1:#0a0c14;
+    --bg-2:#10131c;
+    --ink-0:#f5f6fb;
+    --ink-1:#c9cdda;
+    --ink-2:#8b91a6;
+    --ink-3:#5a607a;
+    --line: rgba(255,255,255,0.08);
+    --line-2: rgba(255,255,255,0.04);
+    --neon:#f2ff2b;
+    --neon-soft:#eaff48;
+    --neon-glow: 0 0 24px rgba(242,255,43,0.55), 0 0 2px rgba(242,255,43,0.9);
+    --danger:#ff5577;
+    --good:#6effb0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--ink-0);font-family:'Inter',system-ui,sans-serif;overflow:hidden;height:100%}
+  button{font-family:inherit;color:inherit}
+  ::selection{background:var(--neon);color:#000}
+
+  /* Space background */
+  #space{position:fixed;inset:0;z-index:0;pointer-events:none}
+  #space canvas{position:absolute;inset:0;width:100%;height:100%}
+  .nebula{position:absolute;inset:-10%;background:
+    radial-gradient(60% 40% at 20% 20%, rgba(242,255,43,0.05), transparent 60%),
+    radial-gradient(50% 40% at 80% 80%, rgba(100,120,255,0.08), transparent 60%),
+    radial-gradient(30% 20% at 50% 50%, rgba(255,80,140,0.04), transparent 70%);
+    filter: blur(40px);
+    mix-blend-mode: screen;
+    animation: drift 60s ease-in-out infinite alternate;
+  }
+  @keyframes drift { from{transform:translate(-2%,-1%)} to{transform:translate(2%,1%)} }
+
+  .grid{position:absolute;inset:0;background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  }
+
+  #root{position:relative;z-index:1;height:100vh;width:100vw;display:flex;flex-direction:column}
+</style>
+<script type="application/json" id="EDITMODE-CONFIG">
+{}
+</script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="space">
+    <div class="nebula"></div>
+    <div class="grid"></div>
+    <canvas id="stars"></canvas>
+  </div>
+  <div id="root"></div>
+
+  <script>
+  // Starfield
+  (function(){
+    const c = document.getElementById('stars');
+    const ctx = c.getContext('2d');
+    let w,h,stars=[],shoot=[];
+    function resize(){ w=c.width=innerWidth*devicePixelRatio; h=c.height=innerHeight*devicePixelRatio; }
+    resize(); addEventListener('resize', resize);
+    function init(){
+      stars = [];
+      const N = Math.floor((innerWidth*innerHeight)/3500);
+      for(let i=0;i<N;i++){
+        stars.push({
+          x: Math.random()*w, y: Math.random()*h,
+          z: Math.random()*1+0.2,
+          r: Math.random()*1.2+0.2,
+          tw: Math.random()*Math.PI*2,
+          sp: 0.002 + Math.random()*0.01
+        });
+      }
+    }
+    init();
+    function tick(t){
+      ctx.clearRect(0,0,w,h);
+      for(const s of stars){
+        s.tw += s.sp;
+        const a = 0.35 + 0.65*((Math.sin(s.tw)+1)/2) * s.z;
+        ctx.beginPath();
+        ctx.fillStyle = `rgba(255,255,255,${a})`;
+        ctx.arc(s.x, s.y, s.r*devicePixelRatio, 0, Math.PI*2);
+        ctx.fill();
+        // slow parallax drift
+        s.x += 0.02*s.z*devicePixelRatio;
+        if(s.x>w) s.x=0;
+      }
+      // occasional shooting star
+      if(Math.random()<0.005){
+        shoot.push({x:Math.random()*w*0.8, y:Math.random()*h*0.4, vx:8+Math.random()*6, vy:2+Math.random()*2, life:1});
+      }
+      for(let i=shoot.length-1;i>=0;i--){
+        const s = shoot[i];
+        ctx.strokeStyle = `rgba(242,255,43,${s.life})`;
+        ctx.lineWidth = 1.2*devicePixelRatio;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(s.x - s.vx*10, s.y - s.vy*10);
+        ctx.stroke();
+        s.x += s.vx*devicePixelRatio;
+        s.y += s.vy*devicePixelRatio;
+        s.life -= 0.015;
+        if(s.life<=0) shoot.splice(i,1);
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  })();
+  </script>
+
+  <script>
+  // Vendetta Engine — realtime PII / sensitive info detector
+  (function(){
+    const PATTERNS = [
+      { kind: 'EMAIL',   re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
+      { kind: 'PHONE',   re: /\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/g },
+      { kind: 'SSN',     re: /\b\d{3}-\d{2}-\d{4}\b/g },
+      { kind: 'IP',      re: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
+      { kind: 'APIKEY',  re: /\b(?:sk-|pk_|AKIA|ghp_|xox[baprs]-)[A-Za-z0-9_\-]{10,}\b/g },
+      { kind: 'URL',     re: /\bhttps?:\/\/[^\s)]+/g },
+      { kind: 'ADDRESS', re: /\b\d{1,5}\s+[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3}\s+(?:Street|St|Avenue|Ave|Road|Rd|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Way)\b/g },
+      { kind: 'MONEY',   re: /\$\s?\d{1,3}(?:,\d{3})+(?:\.\d+)?|\$\s?\d{4,}(?:\.\d+)?/g },
+      { kind: 'NAME',    re: /\b(?:Sarah Chen|Marcus Rodriguez|Elena Volkov|James Patterson|Priya Shah|Nikolai Ivanov|David Kim|Anna Müller)\b/g },
+      { kind: 'COMPANY', re: /\b(?:Project Helios|Project Orion|Northwind Capital|Halcyon Labs|Blackbird Initiative|Atlas Holdings|Meridian Pharma)\b/g },
+      { kind: 'EMPID',   re: /\bEMP-\d{4,6}\b/g },
+    ];
+    // Critical classes that trigger a policy violation (hard block)
+    const CRITICAL = {
+      SSN: { name:'SSN in outbound payload', class:'PII_LEVEL_3',
+             desc:'Social Security Numbers are prohibited from egress to any third-party model endpoint under HALCYON-SEC-08. Tokenize with PII_LEVEL_3 vault or use Sentynyx Local.' },
+    };
+    window.VendettaCritical = CRITICAL;
+    const LABELS = {
+      EMAIL:'email', PHONE:'phone', SSN:'ssn', IP:'ip',
+      APIKEY:'api-key', URL:'url', ADDRESS:'address', MONEY:'amount',
+      NAME:'person', COMPANY:'entity', EMPID:'employee-id'
+    };
+    function detect(text){
+      const hits = [];
+      for(const p of PATTERNS){
+        p.re.lastIndex = 0;
+        let m;
+        while((m = p.re.exec(text)) !== null){
+          hits.push({ start:m.index, end:m.index+m[0].length, kind:p.kind, raw:m[0] });
+          if(m.index === p.re.lastIndex) p.re.lastIndex++;
+        }
+      }
+      hits.sort((a,b)=> a.start-b.start || (b.end-b.start)-(a.end-a.start));
+      const out = [];
+      let cursor = -1;
+      for(const h of hits){ if(h.start >= cursor){ out.push(h); cursor = h.end; } }
+      const counters = {};
+      const map = new Map();
+      for(const h of out){
+        const key = h.kind+'::'+h.raw.toLowerCase();
+        if(!map.has(key)){
+          counters[h.kind] = (counters[h.kind]||0)+1;
+          const idx = String(counters[h.kind]).padStart(2,'0');
+          map.set(key, `{{${LABELS[h.kind]}_${idx}}}`);
+        }
+        h.alias = map.get(key);
+      }
+      return out;
+    }
+    window.Vendetta = { detect, LABELS };
+  })();
+  </script>
+  <script type="text/babel" data-presets="react">
+// Cinematic boot sequence + policy violation flash + threat radar + command palette
+const { useState: useStateF, useEffect: useEffectF, useRef: useRefF } = React;
+
+// ——————————————————————————————————————————————————————————————
+// BOOT SEQUENCE
+function BootSequence({ onDone }){
+  const [step, setStep] = useStateF(0);
+  const lines = [
+    'BOOTING SENTYNYX KERNEL...',
+    'HANDSHAKE · OPENAI · ANTHROPIC · GOOGLE · xAI · META',
+    'INITIALIZING VENDETTA PERIMETER',
+    'LOADING POLICY ENGINE · 147 RULES',
+    'MOUNTING KNOWLEDGE ATLAS · 2.4TB',
+    'TELEMETRY ONLINE · CRYPTO SEAL VERIFIED',
+    'FLEET LINK ESTABLISHED',
+  ];
+  useEffectF(()=>{
+    if(step >= lines.length){
+      setTimeout(onDone, 500);
+      return;
+    }
+    const t = setTimeout(()=>setStep(s=>s+1), step===0 ? 400 : 280);
+    return ()=>clearTimeout(t);
+  },[step]);
+
+  return (
+    <div style={bs.overlay}>
+      <div style={bs.ring1}/>
+      <div style={bs.ring2}/>
+      <div style={bs.ring3}/>
+      <div style={bs.core}/>
+      <div style={bs.content}>
+        <div style={bs.wordmark}>
+          {'SENTYNYX'.split('').map((c,i)=>(
+            <span key={i} style={{...bs.letter, animationDelay:(i*0.05)+'s'}}>{c}</span>
+          ))}
+        </div>
+        <div style={bs.tagline}>THE AI OPERATING SYSTEM FOR BUSINESS</div>
+        <div style={bs.console}>
+          {lines.slice(0, step).map((l,i)=>(
+            <div key={i} style={bs.line}>
+              <span style={{color:'var(--neon)'}}>▸</span> {l}
+              <span style={{color:'var(--neon)', marginLeft:8}}>OK</span>
+            </div>
+          ))}
+          {step < lines.length && (
+            <div style={{...bs.line, opacity:0.6}}>
+              <span style={{color:'var(--neon)'}}>▸</span> {lines[step]}<span className="caret"/>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const bs = {
+  overlay:{
+    position:'fixed', inset:0, zIndex:10000,
+    background:'radial-gradient(ellipse at center, #0a0c14, #05060a 70%)',
+    display:'flex', alignItems:'center', justifyContent:'center',
+    animation:'fadeIn 0.3s'
+  },
+  ring1:{ position:'absolute', width:400, height:400, borderRadius:'50%',
+          border:'1px solid rgba(242,255,43,0.15)', animation:'spin 8s linear infinite' },
+  ring2:{ position:'absolute', width:560, height:560, borderRadius:'50%',
+          border:'1px dashed rgba(242,255,43,0.1)', animation:'spin 20s linear reverse infinite' },
+  ring3:{ position:'absolute', width:200, height:200, borderRadius:'50%',
+          border:'1px solid rgba(242,255,43,0.3)', animation:'spin 4s linear infinite' },
+  core:{ position:'absolute', width:16, height:16, borderRadius:'50%',
+         background:'var(--neon)', boxShadow:'0 0 60px var(--neon), 0 0 120px var(--neon)',
+         animation:'pulse 1s infinite' },
+  content:{ position:'relative', textAlign:'center', zIndex:2, marginTop:120 },
+  wordmark:{ fontFamily:"'JetBrains Mono',monospace", fontSize:42, fontWeight:700, letterSpacing:12, color:'#fff' },
+  letter:{ display:'inline-block', animation:'bootLetter 0.5s both', textShadow:'0 0 20px rgba(242,255,43,0.5)' },
+  tagline:{ fontSize:10, letterSpacing:6, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", marginTop:8 },
+  console:{ marginTop:36, fontFamily:"'JetBrains Mono',monospace", fontSize:11,
+            color:'var(--ink-1)', textAlign:'left', minWidth:380, maxWidth:480 },
+  line:{ margin:'4px 0', display:'flex', alignItems:'center', gap:8,
+         animation:'bootLine 0.3s both',
+         justifyContent:'flex-start' }
+};
+
+// ——————————————————————————————————————————————————————————————
+// POLICY VIOLATION FLASH
+function PolicyViolation({ rule, onDismiss }){
+  useEffectF(()=>{
+    const t = setTimeout(onDismiss, 4200);
+    return ()=>clearTimeout(t);
+  },[]);
+  return (
+    <div style={pv.overlay}>
+      <div style={pv.glitch}/>
+      <div style={pv.crack}>
+        <svg width="100%" height="100%" viewBox="0 0 1000 600" preserveAspectRatio="none">
+          <path d="M 0,300 L 300,280 L 320,320 L 450,290 L 470,350 L 700,310 L 720,260 L 1000,290"
+            stroke="#ff3355" strokeWidth="2" fill="none" opacity="0.8"/>
+          <path d="M 200,0 L 210,100 L 190,180 L 220,280 L 200,400 L 230,500 L 210,600"
+            stroke="#ff3355" strokeWidth="1" fill="none" opacity="0.5"/>
+          <path d="M 800,0 L 790,150 L 810,280 L 780,420 L 800,600"
+            stroke="#ff3355" strokeWidth="1" fill="none" opacity="0.5"/>
+        </svg>
+      </div>
+      <div style={pv.modal}>
+        <div style={pv.header}>
+          <span style={pv.icon}>⚠</span>
+          <div>
+            <div style={pv.title}>TRANSMISSION HALTED</div>
+            <div style={pv.sub}>POLICY VIOLATION · SEVERITY: CRITICAL</div>
+          </div>
+        </div>
+        <div style={pv.body}>
+          <div style={pv.ruleRow}>
+            <div style={pv.ruleTag}>RULE</div>
+            <div style={pv.ruleName}>{rule.name}</div>
+          </div>
+          <div style={pv.ruleRow}>
+            <div style={pv.ruleTag}>CLASS</div>
+            <div style={{color:'#ff99a8', fontFamily:"'JetBrains Mono',monospace"}}>{rule.class}</div>
+          </div>
+          <div style={pv.ruleRow}>
+            <div style={pv.ruleTag}>ACTION</div>
+            <div style={{color:'#fff', fontFamily:"'JetBrains Mono',monospace"}}>BLOCK_EGRESS + AUDIT_LOG</div>
+          </div>
+          <div style={pv.descBox}>
+            {rule.desc}
+          </div>
+        </div>
+        <div style={pv.foot}>
+          <div style={{fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", letterSpacing:1}}>
+            Event logged · security@halcyonlabs notified · 0x9a4f...2c1e
+          </div>
+          <button onClick={onDismiss} style={pv.btn}>ACKNOWLEDGE</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const pv = {
+  overlay:{ position:'fixed', inset:0, zIndex:500,
+            background:'rgba(40,0,8,0.4)', backdropFilter:'blur(6px)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            animation:'shakeIn 0.5s' },
+  glitch:{ position:'absolute', inset:0, pointerEvents:'none',
+           background:'repeating-linear-gradient(0deg, transparent 0px, rgba(255,51,85,0.06) 2px, transparent 4px)',
+           animation:'glitchV 0.15s infinite' },
+  crack:{ position:'absolute', inset:0, pointerEvents:'none', opacity:0.7 },
+  modal:{ position:'relative', width:520, background:'rgba(30,10,14,0.95)',
+          border:'1px solid rgba(255,51,85,0.5)', borderRadius:12,
+          boxShadow:'0 0 80px rgba(255,51,85,0.3), 0 20px 60px rgba(0,0,0,0.7)',
+          animation:'modalIn 0.4s' },
+  header:{ display:'flex', alignItems:'center', gap:14, padding:'20px 22px',
+           borderBottom:'1px solid rgba(255,51,85,0.2)' },
+  icon:{ fontSize:32, color:'#ff3355', animation:'pulse 0.8s infinite' },
+  title:{ fontSize:18, fontWeight:700, letterSpacing:4, color:'#fff', fontFamily:"'JetBrains Mono',monospace" },
+  sub:{ fontSize:10, letterSpacing:3, color:'#ff99a8', marginTop:4, fontFamily:"'JetBrains Mono',monospace" },
+  body:{ padding:20 },
+  ruleRow:{ display:'flex', gap:14, alignItems:'center', marginBottom:10 },
+  ruleTag:{ width:70, fontSize:9, letterSpacing:2, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace" },
+  ruleName:{ color:'#fff', fontSize:13 },
+  descBox:{ marginTop:14, padding:12, background:'rgba(255,51,85,0.06)',
+            border:'1px solid rgba(255,51,85,0.2)', borderRadius:8,
+            fontSize:12, color:'var(--ink-1)', lineHeight:1.6 },
+  foot:{ display:'flex', justifyContent:'space-between', alignItems:'center',
+         padding:'14px 22px', borderTop:'1px solid rgba(255,51,85,0.2)' },
+  btn:{ padding:'8px 16px', background:'#ff3355', color:'#fff', border:'none',
+        borderRadius:6, fontSize:11, fontWeight:700, letterSpacing:2, cursor:'pointer',
+        fontFamily:"'JetBrains Mono',monospace", boxShadow:'0 0 20px rgba(255,51,85,0.4)' }
+};
+
+// ——————————————————————————————————————————————————————————————
+// THREAT RADAR HUD (mini, floating)
+function ThreatRadar(){
+  const [sweep, setSweep] = useStateF(0);
+  const [pings, setPings] = useStateF([]);
+  const rafRef = useRefF();
+  useEffectF(()=>{
+    let running = true;
+    const loop = ()=>{
+      if(!running) return;
+      setSweep(s => (s+2)%360);
+      if(Math.random() < 0.02){
+        setPings(p => [...p.slice(-8), {
+          angle: Math.random()*360, r: 10+Math.random()*45,
+          t: performance.now(), kind:['PII','KEY','FIN','ID'][Math.floor(Math.random()*4)]
+        }]);
+      }
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    loop();
+    return ()=>{ running=false; cancelAnimationFrame(rafRef.current); };
+  },[]);
+  const now = performance.now();
+  const livePings = pings.filter(p => now - p.t < 3000);
+
+  return (
+    <div style={tr.hud}>
+      <div style={tr.head}>
+        <span style={tr.dot}/>
+        <span>THREAT RADAR</span>
+        <span style={{marginLeft:'auto', color:'var(--neon)'}}>{livePings.length} ACTIVE</span>
+      </div>
+      <div style={tr.scope}>
+        <svg viewBox="-60 -60 120 120" width="120" height="120">
+          <defs>
+            <radialGradient id="sweep">
+              <stop offset="0%" stopColor="var(--neon)" stopOpacity="0.4"/>
+              <stop offset="100%" stopColor="var(--neon)" stopOpacity="0"/>
+            </radialGradient>
+          </defs>
+          <circle r="55" fill="rgba(242,255,43,0.02)" stroke="rgba(242,255,43,0.2)"/>
+          <circle r="35" fill="none" stroke="rgba(242,255,43,0.1)"/>
+          <circle r="15" fill="none" stroke="rgba(242,255,43,0.1)"/>
+          <line x1="-55" y1="0" x2="55" y2="0" stroke="rgba(242,255,43,0.1)"/>
+          <line x1="0" y1="-55" x2="0" y2="55" stroke="rgba(242,255,43,0.1)"/>
+          <g transform={`rotate(${sweep})`}>
+            <path d="M 0,0 L 55,0 A 55,55 0 0,1 27,47 z" fill="url(#sweep)"/>
+          </g>
+          {livePings.map((p,i)=>{
+            const x = Math.cos(p.angle*Math.PI/180)*p.r;
+            const y = Math.sin(p.angle*Math.PI/180)*p.r;
+            const age = (now - p.t)/3000;
+            return (
+              <g key={i}>
+                <circle cx={x} cy={y} r={2 + age*4} fill="none" stroke="var(--neon)" strokeWidth="0.5" opacity={1-age}/>
+                <circle cx={x} cy={y} r="1.5" fill="var(--neon)" opacity={1-age}/>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      <div style={tr.stats}>
+        <div><span style={{color:'var(--neon)'}}>1,284</span> redactions/24h</div>
+        <div><span style={{color:'var(--neon)'}}>98.2%</span> egress clean</div>
+      </div>
+    </div>
+  );
+}
+const tr = {
+  hud:{ position:'fixed', right:20, top:80, width:180, zIndex:30,
+        background:'rgba(10,12,20,0.85)', backdropFilter:'blur(12px)',
+        border:'1px solid rgba(242,255,43,0.2)', borderRadius:10, padding:10,
+        fontFamily:"'JetBrains Mono',monospace" },
+  head:{ display:'flex', alignItems:'center', gap:6, fontSize:9, letterSpacing:2,
+         color:'var(--ink-2)', marginBottom:6 },
+  dot:{ width:6, height:6, borderRadius:99, background:'var(--neon)',
+        boxShadow:'0 0 8px var(--neon)', animation:'pulse 1.2s infinite' },
+  scope:{ display:'flex', justifyContent:'center' },
+  stats:{ fontSize:9, color:'var(--ink-2)', marginTop:6, display:'flex', flexDirection:'column', gap:2 }
+};
+
+// ——————————————————————————————————————————————————————————————
+// COMMAND PALETTE
+function CommandPalette({ open, onClose, onAction }){
+  const [q, setQ] = useStateF('');
+  const inputRef = useRefF();
+  useEffectF(()=>{ if(open && inputRef.current) inputRef.current.focus(); },[open]);
+
+  const all = [
+    { k:'orbital',    t:'Open Orbital Picker',          g:'FLEET', sh:'⌘O' },
+    { k:'consensus',  t:'Start Multi-Model Consensus',  g:'FLEET', sh:'⌘M' },
+    { k:'compliance', t:'Open Compliance Dashboard',    g:'VIEW',  sh:'⌘D' },
+    { k:'agent',      t:'Run Agent (Tool-chain)',       g:'EXEC',  sh:'⌘G' },
+    { k:'newchat',    t:'New Transmission',             g:'CHAT',  sh:'⌘N' },
+    { k:'toggle-v',   t:'Toggle Vendetta Panel',        g:'VIEW',  sh:'⌘V' },
+    { k:'policy',     t:'Edit Policy Rules',            g:'ADMIN', sh:'' },
+    { k:'audit',      t:'Open Audit Log',               g:'ADMIN', sh:'' },
+    { k:'atlas',      t:'Knowledge Atlas',              g:'DATA',  sh:'' },
+    { k:'role',       t:'Switch Role · Legal / Eng / HR',g:'ADMIN', sh:'' },
+  ];
+  const filtered = all.filter(x => x.t.toLowerCase().includes(q.toLowerCase()));
+
+  useEffectF(()=>{
+    const h = (e)=>{ if(open && e.key==='Escape') onClose(); };
+    window.addEventListener('keydown', h);
+    return ()=>window.removeEventListener('keydown', h);
+  },[open]);
+
+  if(!open) return null;
+  return (
+    <div style={cp.overlay} onClick={onClose}>
+      <div style={cp.box} onClick={e=>e.stopPropagation()}>
+        <div style={cp.inputRow}>
+          <span style={{color:'var(--neon)', fontSize:14}}>⌘</span>
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)}
+            placeholder="Type a command or search…" style={cp.input}/>
+          <span style={{fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>ESC</span>
+        </div>
+        <div style={cp.list}>
+          {filtered.map((x,i)=>(
+            <button key={x.k} onClick={()=>{ onAction(x.k); onClose(); }} style={cp.row}>
+              <span style={cp.rowG}>{x.g}</span>
+              <span style={{flex:1}}>{x.t}</span>
+              {x.sh && <span style={cp.sh}>{x.sh}</span>}
+            </button>
+          ))}
+          {filtered.length === 0 && (
+            <div style={{padding:20, textAlign:'center', color:'var(--ink-3)', fontSize:12}}>No match.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+const cp = {
+  overlay:{ position:'fixed', inset:0, zIndex:400,
+            background:'rgba(5,6,10,0.6)', backdropFilter:'blur(12px)',
+            display:'flex', alignItems:'flex-start', justifyContent:'center',
+            paddingTop:'12vh', animation:'fadeIn 0.15s' },
+  box:{ width:'min(600px, 94vw)', background:'rgba(10,12,20,0.95)',
+        border:'1px solid rgba(242,255,43,0.3)', borderRadius:12,
+        boxShadow:'0 0 60px rgba(242,255,43,0.15), 0 20px 80px rgba(0,0,0,0.7)',
+        overflow:'hidden' },
+  inputRow:{ display:'flex', alignItems:'center', gap:12, padding:'14px 18px',
+             borderBottom:'1px solid var(--line)' },
+  input:{ flex:1, background:'transparent', border:'none', outline:'none',
+          color:'#fff', fontSize:16, fontFamily:'Inter' },
+  list:{ maxHeight:360, overflow:'auto', padding:6 },
+  row:{ display:'flex', alignItems:'center', gap:12, width:'100%',
+        padding:'10px 12px', background:'transparent', border:'none',
+        borderRadius:6, color:'var(--ink-1)', cursor:'pointer', fontSize:13, textAlign:'left' },
+  rowG:{ fontSize:9, letterSpacing:2, color:'var(--neon)', width:56,
+         fontFamily:"'JetBrains Mono',monospace" },
+  sh:{ fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace",
+       border:'1px solid var(--line)', padding:'2px 6px', borderRadius:4 }
+};
+
+window.FEATURES = { BootSequence, PolicyViolation, ThreatRadar, CommandPalette };
+
+
+// ============ BIG ============
+
+// Consensus Arena + Compliance Dashboard + Agent DAG
+const { useState: useStateB, useEffect: useEffectB, useRef: useRefB } = React;
+
+// ——————————————————————————————————————————————————————————————
+// CONSENSUS ARENA — 3 models in parallel + auto-synth
+function ConsensusArena({ prompt, models, onClose }){
+  const [progress, setProgress] = useStateB(models.map(()=>0));
+  const [phase, setPhase] = useStateB('stream'); // stream -> synth
+  const targets = models.map((m,i)=>[
+    `${m.name} sees the Vendetta-aliased payload and returns a ${['structured memo','rapid bullet list','narrative exec summary'][i]}. Emphasis on ${['completeness','speed','tone'][i]}. Re-hydrated locally.`,
+    `Projected revenue signals ${['stable growth','aggressive uplift','mixed recovery'][i]}. Risk factors flagged: ${['churn, regulatory','supply chain','concentration'][i]}. Recommend: ${['board review','follow-up session','roll-forward memo'][i]}.`,
+  ].join('\n\n'));
+
+  useEffectB(()=>{
+    const ivs = models.map((_,i)=>{
+      const speed = 1 + Math.random()*2;
+      return setInterval(()=>{
+        setProgress(p=>{
+          const n=[...p];
+          if(n[i] < targets[i].length) n[i] = Math.min(targets[i].length, n[i] + Math.ceil(speed));
+          return n;
+        });
+      }, 18);
+    });
+    return ()=>ivs.forEach(clearInterval);
+  },[]);
+
+  useEffectB(()=>{
+    if(progress.every((p,i)=>p >= targets[i].length) && phase==='stream'){
+      setTimeout(()=>setPhase('synth'), 400);
+    }
+  },[progress]);
+
+  const { PROVIDER_GLYPHS } = window.SENTYNYX;
+
+  return (
+    <div style={ca.overlay}>
+      <div style={ca.stage}>
+        <div style={ca.header}>
+          <div>
+            <div style={{fontSize:10, letterSpacing:4, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>MULTI-MODEL</div>
+            <div style={{fontFamily:"'Instrument Serif',serif", fontSize:32, marginTop:4}}>
+              Consensus <em style={{color:'var(--neon)'}}>arena</em>
+            </div>
+            <div style={{fontSize:11, color:'var(--ink-2)', marginTop:4}}>One prompt · three models · one truth</div>
+          </div>
+          <button onClick={onClose} style={ca.close}>×</button>
+        </div>
+
+        <div style={ca.grid}>
+          {models.map((m,i)=>(
+            <div key={m.id} style={{...ca.col, borderColor: m.color+'44'}}>
+              <div style={ca.colHead}>
+                <span style={{color:m.color, fontSize:16}}>{PROVIDER_GLYPHS[m.provider]}</span>
+                <span style={{fontSize:12, fontWeight:600}}>{m.name}</span>
+                <span style={{marginLeft:'auto', fontSize:9, fontFamily:"'JetBrains Mono',monospace", color:progress[i]>=targets[i].length?'var(--good)':'var(--neon)'}}>
+                  {progress[i]>=targets[i].length ? '✓ DONE' : 'STREAMING'}
+                </span>
+              </div>
+              <div style={ca.colBar}>
+                <div style={{...ca.colFill, background:m.color, width:`${Math.min(100, (progress[i]/targets[i].length)*100)}%`}}/>
+              </div>
+              <div style={ca.colBody}>
+                {targets[i].slice(0, progress[i])}
+                {progress[i]<targets[i].length && <span className="caret"/>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {phase==='synth' && (
+          <div style={ca.synth}>
+            <div style={ca.synthHead}>
+              <span style={{color:'var(--neon)', fontSize:14}}>✦</span>
+              <span style={{fontSize:12, letterSpacing:3, fontFamily:"'JetBrains Mono',monospace", color:'var(--neon)'}}>SENTYNYX SYNTHESIS</span>
+              <span style={{marginLeft:'auto', fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>agreement · 82% · diffs · 3</span>
+            </div>
+            <div style={ca.synthBody}>
+              All three models converged on projected Q4 growth; Claude emphasized tone, GPT-5 delivered the most complete structure, Gemini produced the tightest executive bullet form. Recommended blend: <span style={{color:'var(--neon)'}}>GPT-5 scaffold</span> + <span style={{color:'var(--neon)'}}>Claude voice</span> + <span style={{color:'var(--neon)'}}>Gemini exec summary</span>. Disagreement markers surfaced on churn magnitude (±2.4%) and regulatory exposure timing.
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+const ca = {
+  overlay:{ position:'fixed', inset:0, zIndex:250,
+            background:'radial-gradient(ellipse at center, rgba(5,6,10,0.85), rgba(5,6,10,0.98))',
+            backdropFilter:'blur(14px)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            animation:'fadeIn 0.3s' },
+  stage:{ width:'min(1180px, 96vw)', maxHeight:'92vh',
+          display:'flex', flexDirection:'column',
+          background:'rgba(10,12,20,0.95)',
+          border:'1px solid rgba(255,255,255,0.1)', borderRadius:14,
+          padding:24, overflow:'auto' },
+  header:{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:20 },
+  close:{ width:36, height:36, borderRadius:8, background:'rgba(255,255,255,0.05)',
+          border:'1px solid var(--line)', color:'var(--ink-1)', fontSize:20, cursor:'pointer' },
+  grid:{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12 },
+  col:{ padding:14, background:'rgba(255,255,255,0.02)',
+        border:'1px solid', borderRadius:10, minHeight:260 },
+  colHead:{ display:'flex', alignItems:'center', gap:8, marginBottom:10, paddingBottom:10,
+            borderBottom:'1px solid var(--line)' },
+  colBar:{ height:2, background:'rgba(255,255,255,0.05)', marginBottom:10, borderRadius:99, overflow:'hidden' },
+  colFill:{ height:'100%', transition:'width 0.1s' },
+  colBody:{ fontSize:12, lineHeight:1.6, color:'var(--ink-1)', whiteSpace:'pre-wrap' },
+  synth:{ marginTop:16, padding:16, borderRadius:10,
+          background:'linear-gradient(180deg, rgba(242,255,43,0.08), rgba(242,255,43,0.02))',
+          border:'1px solid rgba(242,255,43,0.3)',
+          animation:'fadeIn 0.4s' },
+  synthHead:{ display:'flex', alignItems:'center', gap:8, marginBottom:10 },
+  synthBody:{ fontSize:13, lineHeight:1.7, color:'var(--ink-0)' }
+};
+
+// ——————————————————————————————————————————————————————————————
+// COMPLIANCE DASHBOARD
+function ComplianceDashboard({ onClose }){
+  const tiles = [
+    { n:'SOC 2 TYPE II', s:'COMPLIANT', v:99.1, c:'var(--good)' },
+    { n:'GDPR', s:'COMPLIANT', v:98.4, c:'var(--good)' },
+    { n:'HIPAA', s:'COMPLIANT', v:97.9, c:'var(--good)' },
+    { n:'ISO 27001', s:'IN REVIEW', v:92.0, c:'var(--neon)' },
+    { n:'CCPA', s:'COMPLIANT', v:99.6, c:'var(--good)' },
+    { n:'EU AI ACT', s:'MONITORED', v:94.3, c:'var(--neon)' },
+  ];
+  const teams = [
+    { n:'Engineering',  r:312, p:2, c:4823 },
+    { n:'Legal',        r:847, p:0, c:1220 },
+    { n:'Finance',      r:1124, p:1, c:3411 },
+    { n:'HR',           r:568, p:0, c:982 },
+    { n:'Executive',    r:102, p:0, c:1840 },
+    { n:'Sales',        r:429, p:3, c:2167 },
+  ];
+
+  return (
+    <div style={cd.overlay}>
+      <div style={cd.stage}>
+        <div style={cd.header}>
+          <div>
+            <div style={{fontSize:10, letterSpacing:4, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>GOVERNANCE</div>
+            <div style={{fontFamily:"'Instrument Serif',serif", fontSize:36, marginTop:4}}>
+              Compliance <em style={{color:'var(--neon)'}}>cockpit</em>
+            </div>
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:14}}>
+            <div style={cd.score}>
+              <div style={{fontSize:10, letterSpacing:2, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>COMPOSITE</div>
+              <div style={{fontFamily:"'Instrument Serif',serif", fontSize:40, color:'var(--neon)', lineHeight:1}}>98.2%</div>
+              <div style={{fontSize:10, color:'var(--good)', fontFamily:"'JetBrains Mono',monospace"}}>▲ 0.4 · 7d</div>
+            </div>
+            <button onClick={onClose} style={cd.close}>×</button>
+          </div>
+        </div>
+
+        <div style={cd.tileGrid}>
+          {tiles.map(t=>(
+            <div key={t.n} style={cd.tile}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:8}}>
+                <div style={{fontSize:11, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", color:'var(--ink-1)'}}>{t.n}</div>
+                <div style={{fontSize:9, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", color:t.c}}>{t.s}</div>
+              </div>
+              <div style={{fontFamily:"'Instrument Serif',serif", fontSize:30, color:'#fff'}}>{t.v}%</div>
+              <div style={cd.bar}><div style={{...cd.barFill, width:t.v+'%', background:t.c}}/></div>
+            </div>
+          ))}
+        </div>
+
+        <div style={cd.row2}>
+          <div style={cd.card}>
+            <div style={cd.cardHead}>REDACTIONS BY TEAM · 24H</div>
+            <div style={{display:'flex', flexDirection:'column', gap:8}}>
+              {teams.map(t=>(
+                <div key={t.n} style={cd.teamRow}>
+                  <div style={{width:110, fontSize:12, color:'var(--ink-1)'}}>{t.n}</div>
+                  <div style={{flex:1, height:8, background:'rgba(255,255,255,0.05)', borderRadius:99, overflow:'hidden', position:'relative'}}>
+                    <div style={{position:'absolute', inset:0, left:0, width:`${(t.r/1200)*100}%`,
+                                 background:'linear-gradient(90deg, var(--neon), rgba(242,255,43,0.4))', borderRadius:99}}/>
+                  </div>
+                  <div style={{width:60, textAlign:'right', fontSize:11, fontFamily:"'JetBrains Mono',monospace", color:'var(--neon)'}}>{t.r}</div>
+                  <div style={{width:40, textAlign:'right', fontSize:10, fontFamily:"'JetBrains Mono',monospace", color: t.p>0 ? '#ff99a8' : 'var(--ink-3)'}}>{t.p ? `${t.p}!` : '—'}</div>
+                  <div style={{width:60, textAlign:'right', fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:'var(--ink-3)'}}>${t.c}</div>
+                </div>
+              ))}
+              <div style={{display:'flex', gap:0, marginTop:6, fontSize:9, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", letterSpacing:1}}>
+                <div style={{width:110}}>TEAM</div>
+                <div style={{flex:1}}>VOLUME</div>
+                <div style={{width:60, textAlign:'right'}}>REDACTS</div>
+                <div style={{width:40, textAlign:'right'}}>VIOLATIONS</div>
+                <div style={{width:60, textAlign:'right'}}>COST</div>
+              </div>
+            </div>
+          </div>
+
+          <div style={cd.card}>
+            <div style={cd.cardHead}>AUDIT FEED · CRYPTO-SIGNED</div>
+            <div style={{display:'flex', flexDirection:'column', gap:6, fontFamily:"'JetBrains Mono',monospace", fontSize:11}}>
+              {[
+                ['08:42:11', 'EMAIL', 'alice@acme → {{email_04}}', 'OK', '0x9a4f'],
+                ['08:42:03', 'NAME',  '"Marcus Rodriguez" → {{person_02}}', 'OK', '0x7b2c'],
+                ['08:41:54', 'APIKEY','sk-prod-*** → {{api-key_01}}', 'OK', '0xf1d8'],
+                ['08:41:47', 'SSN',   '123-45-6789 → BLOCKED', 'HALT', '0x03ae'],
+                ['08:41:32', 'MONEY', '$1,240,000 → {{amount_01}}', 'OK', '0xc29b'],
+                ['08:41:20', 'COMPANY','"Northwind" → {{entity_03}}', 'OK', '0x551e'],
+                ['08:41:08', 'IP',    '10.0.0.44 → {{ip_02}}', 'OK', '0xee17'],
+              ].map((r,i)=>(
+                <div key={i} style={{display:'flex', gap:10, alignItems:'center', padding:'4px 8px', background:'rgba(255,255,255,0.02)', borderRadius:4}}>
+                  <span style={{color:'var(--ink-3)'}}>{r[0]}</span>
+                  <span style={{color:'var(--neon)', width:60}}>{r[1]}</span>
+                  <span style={{flex:1, color:'var(--ink-1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r[2]}</span>
+                  <span style={{color: r[3]==='HALT' ? '#ff99a8' : 'var(--good)', width:40, textAlign:'right'}}>{r[3]}</span>
+                  <span style={{color:'var(--ink-3)'}}>{r[4]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div style={cd.bottomRow}>
+          <Metric label="Outbound payloads scanned" value="4.1M" sub="last 30d"/>
+          <Metric label="Sensitive tokens aliased" value="281,420" sub="last 30d" accent/>
+          <Metric label="Policy violations blocked" value="47" sub="↓ 68% vs prior month"/>
+          <Metric label="Mean egress latency" value="712ms" sub="p99 · 1.2s"/>
+          <Metric label="Cost saved vs. vendor" value="$1.24M" sub="smart routing" accent/>
+        </div>
+      </div>
+    </div>
+  );
+}
+function Metric({ label, value, sub, accent }){
+  return (
+    <div style={cd.metric}>
+      <div style={{fontSize:10, letterSpacing:2, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>{label}</div>
+      <div style={{fontFamily:"'Instrument Serif',serif", fontSize:30, color: accent?'var(--neon)':'#fff', lineHeight:1, marginTop:4}}>{value}</div>
+      <div style={{fontSize:10, color:'var(--ink-3)', marginTop:4, fontFamily:"'JetBrains Mono',monospace"}}>{sub}</div>
+    </div>
+  );
+}
+const cd = {
+  overlay:{ position:'fixed', inset:0, zIndex:250,
+            background:'radial-gradient(ellipse at center, rgba(5,6,10,0.9), rgba(5,6,10,0.99))',
+            backdropFilter:'blur(16px)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            padding:20, animation:'fadeIn 0.3s' },
+  stage:{ width:'min(1280px, 96vw)', maxHeight:'96vh',
+          background:'rgba(10,12,20,0.96)',
+          border:'1px solid rgba(255,255,255,0.1)', borderRadius:14,
+          padding:28, overflow:'auto' },
+  header:{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:20 },
+  close:{ width:36, height:36, borderRadius:8, background:'rgba(255,255,255,0.05)',
+          border:'1px solid var(--line)', color:'var(--ink-1)', fontSize:20, cursor:'pointer' },
+  score:{ padding:'6px 16px', border:'1px solid rgba(242,255,43,0.3)', borderRadius:10,
+          background:'rgba(242,255,43,0.04)', textAlign:'right' },
+  tileGrid:{ display:'grid', gridTemplateColumns:'repeat(6,1fr)', gap:10, marginBottom:16 },
+  tile:{ padding:14, background:'rgba(255,255,255,0.02)', border:'1px solid var(--line)', borderRadius:10 },
+  bar:{ height:3, background:'rgba(255,255,255,0.05)', marginTop:8, borderRadius:99, overflow:'hidden' },
+  barFill:{ height:'100%' },
+  row2:{ display:'grid', gridTemplateColumns:'1.1fr 1fr', gap:12, marginBottom:16 },
+  card:{ padding:16, background:'rgba(255,255,255,0.02)', border:'1px solid var(--line)', borderRadius:10 },
+  cardHead:{ fontSize:10, letterSpacing:3, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", marginBottom:12 },
+  teamRow:{ display:'flex', alignItems:'center', gap:10 },
+  bottomRow:{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10 },
+  metric:{ padding:14, background:'rgba(255,255,255,0.02)', border:'1px solid var(--line)', borderRadius:10 }
+};
+
+// ——————————————————————————————————————————————————————————————
+// AGENT DAG — animated tool-chain graph
+function AgentDAG({ onClose }){
+  const [step, setStep] = useStateB(0);
+  const nodes = [
+    { id:'prompt', label:'USER PROMPT',         x:80,  y:140, kind:'user' },
+    { id:'vend1',  label:'VENDETTA · ingress',   x:240, y:140, kind:'vend' },
+    { id:'plan',   label:'PLANNER',              x:400, y:140, kind:'llm', model:'Claude Opus 4.5' },
+    { id:'search', label:'tool: web_search',     x:560, y:60,  kind:'tool' },
+    { id:'db',     label:'tool: query_db',       x:560, y:140, kind:'tool' },
+    { id:'code',   label:'tool: execute_python', x:560, y:220, kind:'tool' },
+    { id:'synth',  label:'SYNTHESIZER',          x:720, y:140, kind:'llm', model:'GPT-5' },
+    { id:'vend2',  label:'VENDETTA · egress',    x:880, y:140, kind:'vend' },
+    { id:'user',   label:'RESPONSE',             x:1040,y:140, kind:'user' },
+  ];
+  const edges = [
+    ['prompt','vend1'],['vend1','plan'],
+    ['plan','search'],['plan','db'],['plan','code'],
+    ['search','synth'],['db','synth'],['code','synth'],
+    ['synth','vend2'],['vend2','user'],
+  ];
+  useEffectB(()=>{
+    if(step >= edges.length) return;
+    const t = setTimeout(()=>setStep(s=>s+1), 450);
+    return ()=>clearTimeout(t);
+  },[step]);
+
+  const activeEdges = edges.slice(0, step);
+  const activeNodes = new Set(['prompt']);
+  activeEdges.forEach(([a,b])=>{ activeNodes.add(a); activeNodes.add(b); });
+
+  const nodeColor = (k, active)=> !active ? '#2a2f3e' : (k==='vend' ? 'var(--neon)' : k==='tool' ? '#6effb0' : k==='llm' ? '#c78bff' : '#fff');
+
+  return (
+    <div style={ag.overlay}>
+      <div style={ag.stage}>
+        <div style={ag.header}>
+          <div>
+            <div style={{fontSize:10, letterSpacing:4, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>AGENT MODE</div>
+            <div style={{fontFamily:"'Instrument Serif',serif", fontSize:32, marginTop:4}}>
+              Tool-chain <em style={{color:'var(--neon)'}}>execution</em>
+            </div>
+            <div style={{fontSize:11, color:'var(--ink-2)', marginTop:4}}>Vendetta wraps every hop · in & out</div>
+          </div>
+          <button onClick={onClose} style={cd.close}>×</button>
+        </div>
+
+        <svg viewBox="0 0 1120 280" style={{width:'100%', height:400}}>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--neon)"/>
+            </marker>
+          </defs>
+          {edges.map(([a,b], i)=>{
+            const na = nodes.find(n=>n.id===a);
+            const nb = nodes.find(n=>n.id===b);
+            const active = i < step;
+            return (
+              <g key={a+'-'+b}>
+                <line x1={na.x+60} y1={na.y} x2={nb.x-60} y2={nb.y}
+                  stroke={active ? 'var(--neon)' : '#2a2f3e'}
+                  strokeWidth={active?1.5:1}
+                  strokeDasharray={active?'':'3 4'}
+                  markerEnd={active?'url(#arrow)':''}
+                  style={active ? {filter:'drop-shadow(0 0 4px var(--neon))'} : {}}
+                />
+                {i === step-1 && (
+                  <circle r="3" fill="var(--neon)">
+                    <animateMotion dur="0.4s" fill="freeze" path={`M ${na.x+60},${na.y} L ${nb.x-60},${nb.y}`}/>
+                  </circle>
+                )}
+              </g>
+            );
+          })}
+          {nodes.map(n=>{
+            const active = activeNodes.has(n.id);
+            const c = nodeColor(n.kind, active);
+            return (
+              <g key={n.id} transform={`translate(${n.x},${n.y})`}>
+                <rect x="-60" y="-22" width="120" height="44" rx="8"
+                  fill={active ? 'rgba(10,12,20,0.9)' : 'rgba(10,12,20,0.5)'}
+                  stroke={c}
+                  strokeWidth="1"/>
+                <text x="0" y="-2" fontSize="10" fontFamily="JetBrains Mono" fill={c} textAnchor="middle" letterSpacing="1">
+                  {n.label}
+                </text>
+                {n.model && (
+                  <text x="0" y="12" fontSize="8" fontFamily="JetBrains Mono" fill="#8b91a6" textAnchor="middle">
+                    {n.model}
+                  </text>
+                )}
+                {active && n.kind==='vend' && (
+                  <circle cx="54" cy="-18" r="3" fill="var(--neon)">
+                    <animate attributeName="opacity" values="1;0.3;1" dur="1s" repeatCount="indefinite"/>
+                  </circle>
+                )}
+              </g>
+            );
+          })}
+        </svg>
+
+        <div style={ag.foot}>
+          <div style={{display:'flex', gap:20, fontSize:10, fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, color:'var(--ink-2)'}}>
+            <Legend c="var(--neon)" t="VENDETTA"/>
+            <Legend c="#c78bff" t="LLM"/>
+            <Legend c="#6effb0" t="TOOL"/>
+            <Legend c="#fff" t="I/O"/>
+          </div>
+          <div style={{fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", letterSpacing:1}}>
+            {step >= edges.length ? '✓ CHAIN COMPLETE · 8 Vendetta hops · 3 tool calls · 1.4s' : `executing step ${step}/${edges.length}`}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function Legend({ c, t }){
+  return (
+    <span style={{display:'inline-flex', alignItems:'center', gap:6}}>
+      <span style={{width:8, height:8, borderRadius:99, background:c, boxShadow:`0 0 6px ${c}`}}/>
+      <span>{t}</span>
+    </span>
+  );
+}
+const ag = {
+  overlay:{ position:'fixed', inset:0, zIndex:250,
+            background:'radial-gradient(ellipse at center, rgba(5,6,10,0.88), rgba(5,6,10,0.98))',
+            backdropFilter:'blur(14px)',
+            display:'flex', alignItems:'center', justifyContent:'center',
+            padding:20, animation:'fadeIn 0.3s' },
+  stage:{ width:'min(1180px, 96vw)', background:'rgba(10,12,20,0.96)',
+          border:'1px solid rgba(255,255,255,0.1)', borderRadius:14, padding:28 },
+  header:{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:20 },
+  foot:{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:8, paddingTop:16, borderTop:'1px solid var(--line)' }
+};
+
+window.BIG = { ConsensusArena, ComplianceDashboard, AgentDAG };
+
+</script>
+<script type="text/babel" data-presets="react">
+// === data.jsx ===
+
+// Shared data + small helpers
+const MODELS = [
+  { id:'gpt-5',          name:'GPT-5',            provider:'OpenAI',     ctx:'400K', flash:'Latest',  color:'#10a37f' },
+  { id:'gpt-5-mini',     name:'GPT-5 mini',       provider:'OpenAI',     ctx:'200K', flash:'Fast',    color:'#10a37f' },
+  { id:'o4',             name:'o4 reasoning',     provider:'OpenAI',     ctx:'200K', flash:'Reasoning', color:'#10a37f' },
+  { id:'claude-opus-4',  name:'Claude Opus 4.5',  provider:'Anthropic',  ctx:'500K', flash:'Top',     color:'#d97757' },
+  { id:'claude-sonnet',  name:'Claude Sonnet 4.5',provider:'Anthropic',  ctx:'200K', flash:'Balanced',color:'#d97757' },
+  { id:'claude-haiku',   name:'Claude Haiku 4.5', provider:'Anthropic',  ctx:'200K', flash:'Fast',    color:'#d97757' },
+  { id:'gemini-2-5-pro', name:'Gemini 2.5 Pro',   provider:'Google',     ctx:'2M',   flash:'Long ctx',color:'#4285f4' },
+  { id:'gemini-flash',   name:'Gemini Flash 2.5', provider:'Google',     ctx:'1M',   flash:'Fast',    color:'#4285f4' },
+  { id:'grok-4',         name:'Grok 4',           provider:'xAI',        ctx:'256K', flash:'Realtime',color:'#ffffff' },
+  { id:'llama-4',        name:'Llama 4 405B',     provider:'Meta',       ctx:'128K', flash:'Open',    color:'#1877f2' },
+  { id:'mistral-large',  name:'Mistral Large 3',  provider:'Mistral',    ctx:'128K', flash:'EU',      color:'#ff7000' },
+  { id:'deepseek-r2',    name:'DeepSeek R2',      provider:'DeepSeek',   ctx:'128K', flash:'Reasoning',color:'#4d6bfe' },
+  { id:'cmd-r+',         name:'Command R+',       provider:'Cohere',     ctx:'128K', flash:'RAG',     color:'#ff6b9d' },
+  { id:'sentynyx-local', name:'Sentynyx Local',   provider:'On-device',  ctx:'32K',  flash:'Private', color:'#f2ff2b' },
+];
+
+const PROVIDER_GLYPHS = {
+  'OpenAI':     '◎',
+  'Anthropic':  '✦',
+  'Google':     '◆',
+  'xAI':        '𝕏',
+  'Meta':       '∞',
+  'Mistral':    '▲',
+  'DeepSeek':   '◈',
+  'Cohere':     '❯',
+  'On-device':  '●',
+};
+
+const CONVERSATIONS = [
+  { id:'c1', title:'Q4 board memo — draft',         time:'now',   pinned:true, shield:true },
+  { id:'c2', title:'Competitor analysis: Northwind', time:'12m',   shield:true },
+  { id:'c3', title:'Refactor billing webhook',       time:'1h' },
+  { id:'c4', title:'HR policy rewrite — EU',         time:'3h',    shield:true },
+  { id:'c5', title:'Pitch deck: Series C',           time:'Yday',  shield:true },
+  { id:'c6', title:'Prod incident post-mortem',      time:'Mon' },
+  { id:'c7', title:'SOC 2 control mapping',          time:'Aug 12' },
+];
+
+const SUGGESTIONS = [
+  { t:'Summarize this earnings call transcript', k:'Analyze' },
+  { t:'Draft a customer churn retention email',   k:'Write' },
+  { t:'Review this contract for red flags',       k:'Legal' },
+  { t:'Turn these notes into an exec memo',       k:'Synthesize' },
+];
+
+window.SENTYNYX = { MODELS, PROVIDER_GLYPHS, CONVERSATIONS, SUGGESTIONS };
+
+
+// === chrome.jsx ===
+
+// Sidebar + Header + Model picker + Vendetta panel
+const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+// ——————————————————————————————————————————————————————————————
+// Logo mark
+function SentynyxMark({ size=28 }){
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" style={{display:'block'}}>
+      <defs>
+        <radialGradient id="lg-core" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#f2ff2b" stopOpacity="1"/>
+          <stop offset="60%" stopColor="#f2ff2b" stopOpacity="0.2"/>
+          <stop offset="100%" stopColor="#f2ff2b" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+      <circle cx="32" cy="32" r="30" fill="url(#lg-core)"/>
+      <circle cx="32" cy="32" r="10" fill="#05060a" stroke="#f2ff2b" strokeWidth="1.2"/>
+      <circle cx="32" cy="32" r="18" fill="none" stroke="#f2ff2b" strokeWidth="0.6" strokeDasharray="2 3" opacity="0.7">
+        <animateTransform attributeName="transform" type="rotate" from="0 32 32" to="360 32 32" dur="18s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="32" cy="32" r="26" fill="none" stroke="#f2ff2b" strokeWidth="0.4" strokeDasharray="1 4" opacity="0.4">
+        <animateTransform attributeName="transform" type="rotate" from="360 32 32" to="0 32 32" dur="40s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="32" cy="32" r="2.2" fill="#f2ff2b"/>
+    </svg>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Sidebar
+function Sidebar({ activeId, onSelect, onNew }){
+  const { CONVERSATIONS } = window.SENTYNYX;
+  return (
+    <aside style={sx.side}>
+      <div style={sx.brand}>
+        <SentynyxMark size={30}/>
+        <div>
+          <div style={sx.brandName}>SENTYNYX</div>
+          <div style={sx.brandSub}>AI · OS · v1.4</div>
+        </div>
+      </div>
+
+      <button style={sx.newBtn} onClick={onNew}>
+        <span style={{fontSize:16, lineHeight:1}}>+</span>
+        <span>New transmission</span>
+        <span style={sx.kbd}>⌘N</span>
+      </button>
+
+      <div style={sx.sideSection}>
+        <div style={sx.sideHead}>
+          <span>Orbit</span>
+          <span style={{opacity:0.4}}>{CONVERSATIONS.length}</span>
+        </div>
+        <div style={{display:'flex', flexDirection:'column', gap:2}}>
+          {CONVERSATIONS.map(c => (
+            <button key={c.id}
+              onClick={()=>onSelect(c.id)}
+              style={{...sx.convo, ...(activeId===c.id ? sx.convoActive : {})}}>
+              <span style={{...sx.convoDot, background: activeId===c.id ? 'var(--neon)' : 'rgba(255,255,255,0.25)'}}/>
+              <span style={sx.convoTitle}>{c.title}</span>
+              {c.shield && <span title="Vendetta protected" style={sx.shield}>⛨</span>}
+              <span style={sx.convoTime}>{c.time}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{marginTop:'auto'}}>
+        <div style={sx.vendCard}>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+            <span style={{fontSize:10, letterSpacing:2, color:'var(--ink-2)'}}>VENDETTA ENGINE</span>
+            <span style={sx.live}><span style={sx.liveDot}/>LIVE</span>
+          </div>
+          <div style={{fontSize:12, color:'var(--ink-1)', lineHeight:1.5}}>
+            Scanning all outbound traffic. <span style={{color:'var(--neon)'}}>1,284</span> redactions this week.
+          </div>
+          <div style={sx.meter}>
+            <div style={{...sx.meterBar, width:'72%'}}/>
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:'var(--ink-3)',marginTop:6}}>
+            <span>Egress clean</span><span>72%</span>
+          </div>
+        </div>
+        <div style={sx.userRow}>
+          <div style={sx.avatar}>KA</div>
+          <div style={{flex:1, minWidth:0}}>
+            <div style={{fontSize:12, fontWeight:500}}>Kai Alvarez</div>
+            <div style={{fontSize:10, color:'var(--ink-3)'}}>Halcyon · Admin</div>
+          </div>
+          <button style={sx.iconBtn} title="Tweaks" onClick={()=>window.postMessage({type:'__activate_edit_mode'}, '*')}>⚙</button>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Top bar + model picker
+function TopBar({ model, setModel, onOpenVendetta, onOpenOrbital, onOpenCmd, onOpenConsensus, onOpenCompliance, onOpenAgent }){
+  const [open, setOpen] = useState(false);
+  const { MODELS, PROVIDER_GLYPHS } = window.SENTYNYX;
+  const ref = useRef(null);
+  useEffect(()=>{
+    const h = (e)=>{ if(ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    addEventListener('mousedown', h); return ()=>removeEventListener('mousedown', h);
+  },[]);
+
+  const grouped = useMemo(()=>{
+    const g = {};
+    for(const m of MODELS){ (g[m.provider] ||= []).push(m); }
+    return g;
+  },[MODELS]);
+
+  return (
+    <div style={sx.topbar}>
+      <div style={{display:'flex',alignItems:'center',gap:14}}>
+        <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,letterSpacing:2,color:'var(--ink-2)'}}>
+          <span>WORKSPACE</span>
+          <span style={sx.chevron}>›</span>
+          <span style={{color:'var(--ink-0)'}}>Halcyon Labs</span>
+          <span style={sx.chevron}>›</span>
+          <span style={{color:'var(--neon)'}}>Mission Control</span>
+        </div>
+      </div>
+
+      <div ref={ref} style={{position:'relative'}}>
+        <button style={sx.modelPill} onClick={()=>setOpen(o=>!o)}>
+          <span style={{color:model.color, fontSize:14}}>{PROVIDER_GLYPHS[model.provider]}</span>
+          <span style={{fontWeight:500}}>{model.name}</span>
+          <span style={sx.modelCtx}>{model.ctx}</span>
+          <span style={{opacity:0.5, marginLeft:4}}>▾</span>
+        </button>
+        {open && (
+          <div style={sx.modelMenu}>
+            <div style={sx.modelMenuHead}>
+              <span>Pick any model from any provider</span>
+              <span style={{fontSize:10,color:'var(--neon)'}}>⛨ Vendetta shields all</span>
+            </div>
+            <div style={{maxHeight:420, overflow:'auto'}}>
+              {Object.entries(grouped).map(([prov, list])=>(
+                <div key={prov} style={{padding:'10px 14px 4px'}}>
+                  <div style={sx.provHead}>
+                    <span style={{color:list[0].color}}>{PROVIDER_GLYPHS[prov]}</span>
+                    <span>{prov}</span>
+                    <span style={{flex:1, height:1, background:'var(--line)', marginLeft:8}}/>
+                  </div>
+                  {list.map(m=>(
+                    <button key={m.id}
+                      onClick={()=>{ setModel(m); setOpen(false); }}
+                      style={{...sx.modelRow, ...(m.id===model.id ? sx.modelRowActive : {})}}>
+                      <span style={{flex:1, display:'flex',alignItems:'center',gap:8}}>
+                        <span style={{width:6,height:6,borderRadius:99,background:m.id===model.id?'var(--neon)':'rgba(255,255,255,0.2)'}}/>
+                        <span>{m.name}</span>
+                      </span>
+                      <span style={sx.flash}>{m.flash}</span>
+                      <span style={sx.modelCtxSm}>{m.ctx}</span>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+            <div style={sx.modelFoot}>
+              <span>↑↓ navigate · ⏎ select</span>
+              <span>+ Add provider</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{display:'flex',alignItems:'center',gap:8}}>
+        <button style={sx.vendBtn} onClick={onOpenOrbital} title="Orbital picker">
+          <span style={{color:'var(--neon)', fontSize:12}}>◎</span>
+          <span>ORBITAL</span>
+        </button>
+        <button style={sx.vendBtn} onClick={onOpenConsensus} title="Multi-model consensus">
+          <span style={{color:'#c78bff', fontSize:12}}>≡</span>
+          <span>CONSENSUS</span>
+        </button>
+        <button style={sx.vendBtn} onClick={onOpenAgent} title="Agent mode">
+          <span style={{color:'#6effb0', fontSize:12}}>⌥</span>
+          <span>AGENT</span>
+        </button>
+        <button style={sx.vendBtn} onClick={onOpenCompliance} title="Compliance dashboard">
+          <span style={{color:'var(--neon)', fontSize:12}}>⌖</span>
+          <span>COMPLIANCE</span>
+        </button>
+        <button style={sx.vendBtn} onClick={onOpenVendetta}>
+          <span style={sx.vendDot}/>
+          <span>VENDETTA</span>
+          <span style={{color:'var(--neon)'}}>ACTIVE</span>
+        </button>
+        <button style={sx.iconBtn} onClick={onOpenCmd} title="Command palette">⌘K</button>
+      </div>
+    </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Vendetta side panel
+function VendettaPanel({ spans, open, onClose, rawText, aliasMode, setAliasMode }){
+  const byKind = useMemo(()=>{
+    const g = {};
+    for(const s of spans){ (g[s.kind] ||= []).push(s); }
+    return g;
+  },[spans]);
+
+  const kinds = Object.keys(byKind);
+  const total = spans.length;
+
+  return (
+    <div style={{...sx.vPanel, transform: open ? 'translateX(0)' : 'translateX(110%)'}}>
+      <div style={sx.vHead}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <div style={sx.vBadge}>
+            <span style={sx.vBadgeDot}/>
+            V
+          </div>
+          <div>
+            <div style={{fontSize:14, fontWeight:600, letterSpacing:1}}>VENDETTA</div>
+            <div style={{fontSize:10,color:'var(--ink-3)',letterSpacing:2}}>REDACTION ENGINE</div>
+          </div>
+        </div>
+        <button style={sx.iconBtn} onClick={onClose}>×</button>
+      </div>
+
+      <div style={sx.vStats}>
+        <div style={sx.vStat}>
+          <div style={sx.vStatNum}>{total}</div>
+          <div style={sx.vStatLbl}>detected</div>
+        </div>
+        <div style={sx.vStat}>
+          <div style={sx.vStatNum}>{kinds.length}</div>
+          <div style={sx.vStatLbl}>classes</div>
+        </div>
+        <div style={sx.vStat}>
+          <div style={{...sx.vStatNum, color:'var(--good)'}}>{total>0?'ON':'IDLE'}</div>
+          <div style={sx.vStatLbl}>shield</div>
+        </div>
+      </div>
+
+      <div style={{padding:'0 18px'}}>
+        <div style={sx.aliasToggle}>
+          <button onClick={()=>setAliasMode('mask')} style={{...sx.aliasTab, ...(aliasMode==='mask'?sx.aliasTabOn:{})}}>Masked</button>
+          <button onClick={()=>setAliasMode('alias')} style={{...sx.aliasTab, ...(aliasMode==='alias'?sx.aliasTabOn:{})}}>Aliased</button>
+          <button onClick={()=>setAliasMode('raw')} style={{...sx.aliasTab, ...(aliasMode==='raw'?sx.aliasTabOn:{})}}>Raw (internal)</button>
+        </div>
+      </div>
+
+      <div style={sx.vList}>
+        {total === 0 && (
+          <div style={sx.vEmpty}>
+            <div style={{fontSize:11, letterSpacing:2, color:'var(--ink-3)', marginBottom:8}}>NO SENSITIVE DATA</div>
+            <div style={{fontSize:12, color:'var(--ink-2)', lineHeight:1.6}}>
+              Start typing in the prompt box. Vendetta scans every keystroke for PII, API keys, project codenames, employee IDs, financials and more.
+            </div>
+          </div>
+        )}
+        {kinds.map(k=>(
+          <div key={k} style={sx.vGroup}>
+            <div style={sx.vGroupHead}>
+              <span style={sx.vDotNeon}/>
+              <span>{k}</span>
+              <span style={{opacity:0.4}}>×{byKind[k].length}</span>
+            </div>
+            {byKind[k].map((s,i)=>(
+              <div key={i} style={sx.vItem}>
+                <div style={sx.vItemRaw}>{s.raw}</div>
+                <div style={sx.vItemArrow}>→</div>
+                <div style={sx.vItemAlias}>{s.alias}</div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      <div style={sx.vFoot}>
+        <div style={{fontSize:10, color:'var(--ink-3)', lineHeight:1.5}}>
+          Outbound payload will be rewritten before the API call. Responses are re-hydrated locally — the model never sees the raw values.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+window.UI_CHROME = { Sidebar, TopBar, VendettaPanel, SentynyxMark };
+
+// ——————————————————————————————————————————————————————————————
+// Styles
+const sx = {
+  side:{
+    width:280, height:'100%', flexShrink:0,
+    background:'rgba(10,12,20,0.72)',
+    backdropFilter:'blur(18px)',
+    borderRight:'1px solid var(--line)',
+    padding:'18px 14px',
+    display:'flex', flexDirection:'column', gap:16
+  },
+  brand:{ display:'flex', alignItems:'center', gap:10, padding:'4px 6px' },
+  brandName:{ fontSize:14, fontWeight:700, letterSpacing:4, fontFamily:"'JetBrains Mono',monospace" },
+  brandSub:{ fontSize:9, color:'var(--ink-3)', letterSpacing:3, fontFamily:"'JetBrains Mono',monospace" },
+  newBtn:{
+    display:'flex', alignItems:'center', gap:10,
+    padding:'10px 12px',
+    background:'rgba(242,255,43,0.06)',
+    border:'1px solid rgba(242,255,43,0.35)',
+    color:'var(--ink-0)',
+    borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:500,
+    transition:'all 0.15s'
+  },
+  kbd:{ marginLeft:'auto', fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace",
+        border:'1px solid var(--line)', padding:'2px 6px', borderRadius:4 },
+  sideSection:{ display:'flex', flexDirection:'column', gap:8, overflow:'hidden' },
+  sideHead:{ display:'flex', justifyContent:'space-between', padding:'0 6px',
+             fontSize:10, letterSpacing:3, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace" },
+  convo:{
+    display:'flex', alignItems:'center', gap:10,
+    padding:'8px 10px', background:'transparent',
+    border:'1px solid transparent', borderRadius:6,
+    color:'var(--ink-1)', fontSize:12, cursor:'pointer', textAlign:'left'
+  },
+  convoActive:{
+    background:'rgba(242,255,43,0.05)',
+    border:'1px solid rgba(242,255,43,0.2)',
+    color:'var(--ink-0)'
+  },
+  convoDot:{ width:5, height:5, borderRadius:99, flexShrink:0 },
+  convoTitle:{ flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  convoTime:{ fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace" },
+  shield:{ color:'var(--neon)', fontSize:10, filter:'drop-shadow(0 0 4px rgba(242,255,43,0.6))' },
+  vendCard:{
+    padding:14, borderRadius:10,
+    background:'linear-gradient(180deg, rgba(242,255,43,0.08), rgba(242,255,43,0.02))',
+    border:'1px solid rgba(242,255,43,0.2)'
+  },
+  live:{ display:'flex', alignItems:'center', gap:6, fontSize:9,
+         fontFamily:"'JetBrains Mono',monospace", letterSpacing:2, color:'var(--neon)' },
+  liveDot:{ width:6, height:6, borderRadius:99, background:'var(--neon)',
+            boxShadow:'0 0 8px var(--neon)', animation:'pulse 1.5s infinite' },
+  meter:{ marginTop:10, height:4, background:'rgba(255,255,255,0.06)', borderRadius:99, overflow:'hidden' },
+  meterBar:{ height:'100%', background:'var(--neon)', boxShadow:'0 0 8px var(--neon)' },
+  userRow:{ display:'flex', alignItems:'center', gap:10, marginTop:12, padding:'8px 6px',
+            borderTop:'1px solid var(--line)' },
+  avatar:{ width:28, height:28, borderRadius:8, background:'linear-gradient(135deg,#f2ff2b,#eaff48)',
+           color:'#000', display:'flex', alignItems:'center', justifyContent:'center',
+           fontWeight:700, fontSize:11 },
+  iconBtn:{ background:'transparent', border:'1px solid var(--line)', color:'var(--ink-1)',
+            width:28, height:28, borderRadius:6, cursor:'pointer', fontSize:12 },
+
+  topbar:{
+    height:52, display:'flex', alignItems:'center', justifyContent:'space-between',
+    padding:'0 22px', borderBottom:'1px solid var(--line)',
+    background:'rgba(5,6,10,0.5)', backdropFilter:'blur(20px)',
+    position:'relative', zIndex:10
+  },
+  chevron:{ color:'var(--ink-3)' },
+  modelPill:{
+    display:'flex', alignItems:'center', gap:10,
+    padding:'6px 12px', background:'rgba(255,255,255,0.04)',
+    border:'1px solid var(--line)', borderRadius:99,
+    color:'var(--ink-0)', fontSize:12, cursor:'pointer'
+  },
+  modelCtx:{ fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace",
+             border:'1px solid var(--line)', padding:'1px 6px', borderRadius:4 },
+  modelMenu:{
+    position:'absolute', top:'calc(100% + 8px)', left:'50%', transform:'translateX(-50%)',
+    width:420, background:'rgba(16,19,28,0.95)', backdropFilter:'blur(24px)',
+    border:'1px solid var(--line)', borderRadius:12,
+    boxShadow:'0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(242,255,43,0.05)',
+    zIndex:100, overflow:'hidden'
+  },
+  modelMenuHead:{ padding:'12px 14px', display:'flex', justifyContent:'space-between',
+                  fontSize:11, color:'var(--ink-2)', borderBottom:'1px solid var(--line)' },
+  provHead:{ display:'flex', alignItems:'center', gap:8, fontSize:10, letterSpacing:3,
+             color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", padding:'6px 0' },
+  modelRow:{ display:'flex', alignItems:'center', gap:10, width:'100%',
+             padding:'8px 10px', background:'transparent', border:'1px solid transparent',
+             borderRadius:6, color:'var(--ink-1)', cursor:'pointer', fontSize:12, textAlign:'left' },
+  modelRowActive:{ background:'rgba(242,255,43,0.06)', border:'1px solid rgba(242,255,43,0.2)',
+                   color:'var(--ink-0)' },
+  flash:{ fontSize:10, color:'var(--neon)', fontFamily:"'JetBrains Mono',monospace",
+          letterSpacing:1 },
+  modelCtxSm:{ fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace",
+               width:44, textAlign:'right' },
+  modelFoot:{ display:'flex', justifyContent:'space-between', padding:'10px 14px',
+              fontSize:10, color:'var(--ink-3)', borderTop:'1px solid var(--line)',
+              fontFamily:"'JetBrains Mono',monospace" },
+
+  vendBtn:{
+    display:'flex', alignItems:'center', gap:8, padding:'6px 12px',
+    background:'rgba(242,255,43,0.06)', border:'1px solid rgba(242,255,43,0.3)',
+    borderRadius:99, fontSize:10, letterSpacing:2,
+    fontFamily:"'JetBrains Mono',monospace", color:'var(--ink-0)', cursor:'pointer'
+  },
+  vendDot:{ width:6, height:6, borderRadius:99, background:'var(--neon)',
+            boxShadow:'0 0 10px var(--neon)', animation:'pulse 1.5s infinite' },
+
+  // Vendetta panel
+  vPanel:{
+    position:'fixed', top:52, right:0, bottom:0, width:360,
+    background:'rgba(10,12,20,0.88)', backdropFilter:'blur(24px)',
+    borderLeft:'1px solid rgba(242,255,43,0.2)',
+    transition:'transform 0.35s cubic-bezier(.2,.9,.3,1.1)',
+    zIndex:50, display:'flex', flexDirection:'column',
+    boxShadow:'-20px 0 60px rgba(0,0,0,0.5)'
+  },
+  vHead:{ display:'flex', justifyContent:'space-between', alignItems:'center',
+          padding:18, borderBottom:'1px solid var(--line)' },
+  vBadge:{ width:32, height:32, borderRadius:8,
+           background:'radial-gradient(circle at 30% 30%, rgba(242,255,43,0.3), transparent 70%)',
+           border:'1px solid rgba(242,255,43,0.5)', color:'var(--neon)',
+           display:'flex', alignItems:'center', justifyContent:'center',
+           fontWeight:700, position:'relative', fontFamily:"'JetBrains Mono',monospace" },
+  vBadgeDot:{ position:'absolute', top:-2, right:-2, width:8, height:8, borderRadius:99,
+              background:'var(--neon)', boxShadow:'0 0 8px var(--neon)', animation:'pulse 1.5s infinite' },
+  vStats:{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:1, padding:0,
+           borderBottom:'1px solid var(--line)', background:'var(--line)' },
+  vStat:{ padding:'14px 16px', background:'rgba(10,12,20,0.5)' },
+  vStatNum:{ fontSize:22, fontWeight:300, fontFamily:"'Instrument Serif',serif", color:'var(--neon)' },
+  vStatLbl:{ fontSize:9, letterSpacing:2, color:'var(--ink-3)', marginTop:2,
+             fontFamily:"'JetBrains Mono',monospace" },
+
+  aliasToggle:{ display:'flex', gap:4, padding:4, marginTop:14,
+                background:'rgba(255,255,255,0.03)', borderRadius:8, border:'1px solid var(--line)' },
+  aliasTab:{ flex:1, padding:'6px 8px', background:'transparent', border:'none',
+             borderRadius:6, fontSize:11, color:'var(--ink-2)', cursor:'pointer' },
+  aliasTabOn:{ background:'rgba(242,255,43,0.12)', color:'var(--neon)' },
+
+  vList:{ flex:1, overflow:'auto', padding:'14px 18px' },
+  vEmpty:{ padding:'20px 4px', textAlign:'left' },
+  vGroup:{ marginBottom:18 },
+  vGroupHead:{ display:'flex', alignItems:'center', gap:8, fontSize:10, letterSpacing:2,
+               color:'var(--ink-2)', fontFamily:"'JetBrains Mono',monospace", marginBottom:8 },
+  vDotNeon:{ width:5, height:5, borderRadius:99, background:'var(--neon)',
+             boxShadow:'0 0 6px var(--neon)' },
+  vItem:{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px',
+          background:'rgba(255,255,255,0.02)', border:'1px solid var(--line)',
+          borderRadius:6, marginBottom:4, fontSize:11, fontFamily:"'JetBrains Mono',monospace" },
+  vItemRaw:{ flex:1, color:'var(--ink-1)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' },
+  vItemArrow:{ color:'var(--ink-3)' },
+  vItemAlias:{ color:'var(--neon)', textShadow:'0 0 8px rgba(242,255,43,0.4)' },
+  vFoot:{ padding:'14px 18px', borderTop:'1px solid var(--line)' },
+};
+
+window.CHROME_STYLES = sx;
+
+
+// === chat.jsx ===
+
+// Composer with realtime Vendetta highlighting + chat transcript
+const { useState: useStateC, useEffect: useEffectC, useRef: useRefC, useMemo: useMemoC } = React;
+
+// ——————————————————————————————————————————————————————————————
+// Build a highlighted mirror of the textarea content
+function Highlighted({ text, spans }){
+  if(spans.length === 0){
+    return <span>{text}</span>;
+  }
+  const pieces = [];
+  let cur = 0;
+  spans.forEach((s, i)=>{
+    if(s.start > cur){
+      pieces.push(<span key={'p'+i}>{text.slice(cur, s.start)}</span>);
+    }
+    pieces.push(
+      <span key={'h'+i} className={'vend-hit vend-'+s.kind}>
+        <span className="vend-raw">{text.slice(s.start, s.end)}</span>
+        <span className="vend-tag">{s.kind}</span>
+      </span>
+    );
+    cur = s.end;
+  });
+  if(cur < text.length) pieces.push(<span key="tail">{text.slice(cur)}</span>);
+  return <>{pieces}</>;
+}
+
+// ——————————————————————————————————————————————————————————————
+function Composer({ model, onSend, spans, setSpans, text, setText, onToggleVendetta, vendettaOpen }){
+  const taRef = useRefC(null);
+  const mirrorRef = useRefC(null);
+
+  // scan on every change
+  useEffectC(()=>{
+    const hits = window.Vendetta.detect(text);
+    setSpans(hits);
+  },[text]);
+
+  // sync scroll between textarea and mirror
+  const onScroll = ()=>{
+    if(mirrorRef.current && taRef.current){
+      mirrorRef.current.scrollTop = taRef.current.scrollTop;
+      mirrorRef.current.scrollLeft = taRef.current.scrollLeft;
+    }
+  };
+
+  const submit = ()=>{
+    if(!text.trim()) return;
+    onSend(text, spans);
+    setText('');
+  };
+
+  const onKey = (e)=>{
+    if(e.key === 'Enter' && (e.metaKey || e.ctrlKey)){
+      e.preventDefault();
+      submit();
+    }
+  };
+
+  const { PROVIDER_GLYPHS } = window.SENTYNYX;
+
+  return (
+    <div style={cx.wrap}>
+      {/* ambient glow when spans found */}
+      <div style={{...cx.glow, opacity: spans.length>0 ? 1 : 0}}/>
+
+      <div style={{...cx.shell, borderColor: spans.length>0 ? 'rgba(242,255,43,0.4)' : 'rgba(255,255,255,0.1)'}}>
+        {/* Vendetta live strip */}
+        <div style={cx.liveStrip}>
+          <div style={cx.liveLeft}>
+            <span style={cx.liveDotY}/>
+            <span style={{fontSize:10, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", color:'var(--ink-2)'}}>
+              VENDETTA
+            </span>
+            <span style={{fontSize:10, color: spans.length>0 ? 'var(--neon)' : 'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>
+              {spans.length > 0
+                ? `${spans.length} sensitive ${spans.length===1?'token':'tokens'} detected · will be anonymized before ${model.provider}`
+                : 'Listening · no PII in buffer'}
+            </span>
+          </div>
+          <button onClick={onToggleVendetta} style={cx.livePanelBtn}>
+            {vendettaOpen ? 'HIDE' : 'VIEW'} PANEL →
+          </button>
+        </div>
+
+        <div style={cx.editorWrap}>
+          {/* Mirror div with highlights (z-index under textarea) */}
+          <div ref={mirrorRef} style={cx.mirror} aria-hidden="true">
+            <Highlighted text={text + '\u200b'} spans={spans}/>
+          </div>
+          {/* The actual textarea, transparent text */}
+          <textarea
+            ref={taRef}
+            value={text}
+            onChange={e=>setText(e.target.value)}
+            onScroll={onScroll}
+            onKeyDown={onKey}
+            placeholder="Transmit to the fleet…  (⌘↵ to send)"
+            style={cx.textarea}
+            spellCheck={false}
+          />
+        </div>
+
+        <div style={cx.toolbar}>
+          <div style={{display:'flex', alignItems:'center', gap:6}}>
+            <button style={cx.toolBtn} title="Attach">
+              <span style={{fontSize:14}}>⏚</span>
+            </button>
+            <button style={cx.toolBtn} title="Knowledge base">
+              <span style={{fontSize:12}}>⌯</span>
+              <span>Atlas</span>
+            </button>
+            <button style={cx.toolBtn} title="Tools">
+              <span style={{fontSize:12}}>∷</span>
+              <span>Tools</span>
+            </button>
+            <button style={cx.toolBtn} title="Voice">
+              <span style={{fontSize:12}}>◉</span>
+            </button>
+          </div>
+
+          <div style={{display:'flex', alignItems:'center', gap:10}}>
+            <div style={cx.routeInfo}>
+              <span style={{fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--ink-3)', letterSpacing:1}}>ROUTE</span>
+              <span style={{fontSize:11}}>
+                <span style={{color:'var(--neon)'}}>⛨</span> Vendetta
+                <span style={{color:'var(--ink-3)', margin:'0 6px'}}>→</span>
+                <span style={{color:model.color}}>{PROVIDER_GLYPHS[model.provider]}</span> {model.name}
+              </span>
+            </div>
+            <button onClick={submit} style={{...cx.sendBtn, opacity: text.trim()?1:0.4}}>
+              <span>Transmit</span>
+              <span style={{fontSize:14}}>↗</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style={cx.helperRow}>
+        <span>{text.length} chars</span>
+        <span>·</span>
+        <span>~{Math.ceil(text.length/4)} tokens</span>
+        <span>·</span>
+        <span>Payload egress is end-to-end scanned by the Vendetta engine</span>
+      </div>
+    </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Chat transcript
+function Transcript({ messages, model }){
+  const scroller = useRefC(null);
+  useEffectC(()=>{
+    if(scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight;
+  },[messages]);
+
+  const { PROVIDER_GLYPHS } = window.SENTYNYX;
+
+  return (
+    <div ref={scroller} style={cx.transcript}>
+      {messages.length === 0 && <EmptyState/>}
+      {messages.map((m,i)=>(
+        <MessageBlock key={i} m={m} model={model} glyph={PROVIDER_GLYPHS[model.provider]}/>
+      ))}
+    </div>
+  );
+}
+
+function EmptyState(){
+  const { SUGGESTIONS } = window.SENTYNYX;
+  return (
+    <div style={cx.empty}>
+      <div style={cx.emptyHalo}/>
+      <div style={{position:'relative', textAlign:'center', maxWidth:640, margin:'0 auto'}}>
+        <div style={{fontSize:10, letterSpacing:6, color:'var(--neon)', fontFamily:"'JetBrains Mono',monospace", marginBottom:24}}>
+          ◦ ◦ ◦  SYSTEM READY  ◦ ◦ ◦
+        </div>
+        <h1 style={cx.emptyTitle}>
+          What should we <em style={{color:'var(--neon)', fontStyle:'italic', textShadow:'0 0 20px rgba(242,255,43,0.4)'}}>orchestrate</em> today?
+        </h1>
+        <div style={cx.emptySub}>
+          Any model · any provider · zero sensitive data leaks the perimeter.
+        </div>
+
+        <div style={cx.suggest}>
+          {SUGGESTIONS.map((s,i)=>(
+            <button key={i} style={cx.sugCard}>
+              <div style={cx.sugK}>{s.k}</div>
+              <div style={cx.sugT}>{s.t}</div>
+              <div style={cx.sugArrow}>→</div>
+            </button>
+          ))}
+        </div>
+
+        <div style={cx.emptyStats}>
+          <Stat label="Providers online" value="9"/>
+          <Stat label="Models routable" value="14"/>
+          <Stat label="Redactions / 24h" value="4,108" accent/>
+          <Stat label="Mean latency" value="712ms"/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, accent }){
+  return (
+    <div style={cx.stat}>
+      <div style={{...cx.statValue, color: accent ? 'var(--neon)' : 'var(--ink-0)'}}>{value}</div>
+      <div style={cx.statLabel}>{label}</div>
+    </div>
+  );
+}
+
+function MessageBlock({ m, model, glyph }){
+  const [view, setView] = React.useState('rehydrated');
+  if(m.role === 'user'){
+    return (
+      <div style={cx.msgUser}>
+        <div style={cx.msgUserHead}>
+          <div style={cx.avatarU}>KA</div>
+          <div style={{fontSize:11, color:'var(--ink-2)'}}>You</div>
+          <div style={cx.msgMeta}>
+            {m.spans?.length > 0 && (
+              <span style={cx.msgShield}>
+                <span style={{color:'var(--neon)'}}>⛨</span>
+                {m.spans.length} redacted · {model.provider} received aliased payload
+              </span>
+            )}
+          </div>
+        </div>
+        <div style={cx.msgUserBody}>
+          <Highlighted text={m.text} spans={m.spans||[]}/>
+        </div>
+      </div>
+    );
+  }
+
+  // Build aliased version of the text: replace references like placeholders
+  const aliasedReply = m.spans && m.spans.length
+    ? `Routed through the Vendetta perimeter. ${m.spans.length} sensitive tokens were aliased. The upstream model saw:
+
+> "Draft a memo to the ${m.spans.slice(0,2).map(s=>s.alias).join(' / ')} exec team summarizing Q4 results. Include projected revenue of ${m.spans.find(s=>s.kind==='MONEY')?.alias||'{{amount_01}}'} and cc ${m.spans.find(s=>s.kind==='NAME')?.alias||'{{person_01}}'}..."
+
+Response returned structural — values re-hydrated locally before display.`
+    : m.text;
+
+  return (
+    <div style={cx.msgAssist}>
+      <div style={cx.msgAssistHead}>
+        <div style={{...cx.avatarA, background:model.color+'22', color:model.color, borderColor: model.color+'66'}}>
+          {glyph}
+        </div>
+        <div style={{fontSize:11, color:'var(--ink-2)'}}>{model.name}</div>
+        <div style={cx.msgMeta}>
+          <span style={{fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--ink-3)'}}>
+            via Vendetta tunnel · 712ms · re-hydrated
+          </span>
+          {m.spans && m.spans.length > 0 && (
+            <div style={cx.dualToggle}>
+              <button onClick={()=>setView('rehydrated')} style={{...cx.dualTab, ...(view==='rehydrated'?cx.dualTabOn:{})}}>You see</button>
+              <button onClick={()=>setView('aliased')} style={{...cx.dualTab, ...(view==='aliased'?cx.dualTabOn:{})}}>Model saw</button>
+            </div>
+          )}
+        </div>
+      </div>
+      <div style={{...cx.msgAssistBody, ...(view==='aliased'?cx.msgAliased:{})}}>
+        {view === 'rehydrated' ? (
+          <>
+            {m.text.split('\n').map((ln,i)=><div key={i} style={{marginBottom: ln?8:0}}>{ln || '\u00A0'}</div>)}
+            {m.streaming && <span className="caret"/>}
+          </>
+        ) : (
+          <div style={cx.aliasView}>
+            <div style={{fontSize:10, letterSpacing:2, color:'var(--neon)', fontFamily:"'JetBrains Mono',monospace", marginBottom:10}}>
+              ▸ UPSTREAM PAYLOAD · what {model.provider} actually received
+            </div>
+            <div style={{fontFamily:"'JetBrains Mono',monospace", fontSize:12, lineHeight:1.7, color:'var(--ink-1)'}}>
+              {aliasedReply.split('\n').map((ln,i)=><div key={i} style={{marginBottom: ln?6:0}}>{ln || '\u00A0'}</div>)}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+window.UI_CHAT = { Composer, Transcript };
+
+// ——————————————————————————————————————————————————————————————
+const cx = {
+  wrap:{ position:'relative', margin:'0 auto', width:'min(780px, 94%)', paddingBottom:18 },
+  glow:{
+    position:'absolute', inset:'-40px -40px 0 -40px',
+    background:'radial-gradient(60% 80% at 50% 100%, rgba(242,255,43,0.22), transparent 70%)',
+    filter:'blur(30px)', transition:'opacity 0.4s', pointerEvents:'none'
+  },
+  shell:{
+    position:'relative',
+    background:'rgba(10,12,20,0.82)', backdropFilter:'blur(20px)',
+    border:'1px solid rgba(255,255,255,0.1)',
+    borderRadius:16,
+    transition:'border-color 0.3s',
+    boxShadow:'0 10px 40px rgba(0,0,0,0.4)',
+    overflow:'hidden'
+  },
+  liveStrip:{
+    display:'flex', justifyContent:'space-between', alignItems:'center',
+    padding:'8px 14px', borderBottom:'1px solid var(--line)',
+    background:'rgba(242,255,43,0.03)'
+  },
+  liveLeft:{ display:'flex', alignItems:'center', gap:10 },
+  liveDotY:{ width:6, height:6, borderRadius:99, background:'var(--neon)',
+             boxShadow:'0 0 8px var(--neon)', animation:'pulse 1.5s infinite' },
+  livePanelBtn:{ background:'transparent', border:'none', color:'var(--neon)',
+                 fontSize:10, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace",
+                 cursor:'pointer' },
+  editorWrap:{ position:'relative', minHeight:110 },
+  mirror:{
+    position:'absolute', inset:0, padding:'16px 18px',
+    fontFamily:'Inter,system-ui,sans-serif', fontSize:15, lineHeight:1.6,
+    color:'var(--ink-0)',
+    pointerEvents:'none',
+    whiteSpace:'pre-wrap', wordBreak:'break-word', overflow:'auto',
+    overflowY:'auto'
+  },
+  textarea:{
+    position:'relative', width:'100%', minHeight:110, maxHeight:260,
+    padding:'16px 18px', background:'transparent',
+    border:'none', outline:'none', resize:'none',
+    fontFamily:'Inter,system-ui,sans-serif', fontSize:15, lineHeight:1.6,
+    color:'transparent', caretColor:'var(--neon)'
+  },
+  toolbar:{
+    display:'flex', justifyContent:'space-between', alignItems:'center',
+    padding:'8px 10px 10px 10px', borderTop:'1px solid var(--line)'
+  },
+  toolBtn:{
+    display:'inline-flex', alignItems:'center', gap:6, padding:'6px 10px',
+    background:'transparent', border:'1px solid transparent',
+    color:'var(--ink-2)', borderRadius:6, fontSize:11, cursor:'pointer'
+  },
+  routeInfo:{ display:'flex', alignItems:'center', gap:8, padding:'4px 10px',
+              border:'1px solid var(--line)', borderRadius:99, background:'rgba(255,255,255,0.02)' },
+  sendBtn:{
+    display:'inline-flex', alignItems:'center', gap:8, padding:'8px 14px',
+    background:'var(--neon)', color:'#000',
+    border:'none', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer',
+    boxShadow:'0 0 20px rgba(242,255,43,0.4)',
+    transition:'all 0.15s'
+  },
+  helperRow:{
+    display:'flex', alignItems:'center', gap:8, justifyContent:'center',
+    padding:'10px 0 0', fontSize:10, color:'var(--ink-3)',
+    fontFamily:"'JetBrains Mono',monospace", letterSpacing:1
+  },
+
+  transcript:{ flex:1, overflow:'auto', padding:'28px 24px 18px' },
+
+  empty:{ position:'relative', minHeight:'60vh', display:'flex', alignItems:'center', justifyContent:'center', padding:'40px 20px' },
+  emptyHalo:{
+    position:'absolute', left:'50%', top:'30%', transform:'translate(-50%,-50%)',
+    width:700, height:700, borderRadius:'50%',
+    background:'radial-gradient(circle, rgba(242,255,43,0.08), transparent 60%)',
+    filter:'blur(20px)', pointerEvents:'none'
+  },
+  emptyTitle:{
+    fontFamily:"'Instrument Serif',serif", fontSize:56, fontWeight:400,
+    lineHeight:1.05, margin:'0 0 14px', letterSpacing:'-0.02em'
+  },
+  emptySub:{ fontSize:14, color:'var(--ink-2)', marginBottom:32 },
+  suggest:{
+    display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:10, marginBottom:32
+  },
+  sugCard:{
+    display:'flex', alignItems:'center', gap:12, padding:'14px 16px',
+    background:'rgba(255,255,255,0.03)',
+    border:'1px solid var(--line)', borderRadius:10,
+    color:'var(--ink-1)', cursor:'pointer', textAlign:'left',
+    transition:'all 0.15s'
+  },
+  sugK:{ fontSize:9, letterSpacing:2, color:'var(--neon)', fontFamily:"'JetBrains Mono',monospace",
+         padding:'3px 7px', border:'1px solid rgba(242,255,43,0.3)', borderRadius:99 },
+  sugT:{ flex:1, fontSize:13 },
+  sugArrow:{ color:'var(--ink-3)', fontSize:14 },
+  emptyStats:{
+    display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:1,
+    background:'var(--line)',
+    border:'1px solid var(--line)', borderRadius:10, overflow:'hidden'
+  },
+  stat:{ padding:'14px 16px', background:'rgba(10,12,20,0.6)' },
+  statValue:{ fontFamily:"'Instrument Serif',serif", fontSize:30, fontWeight:400, lineHeight:1 },
+  statLabel:{ fontSize:9, letterSpacing:2, color:'var(--ink-3)', marginTop:4,
+              fontFamily:"'JetBrains Mono',monospace" },
+
+  msgUser:{ margin:'0 auto 24px', maxWidth:820 },
+  msgUserHead:{ display:'flex', alignItems:'center', gap:10, marginBottom:8 },
+  avatarU:{ width:24, height:24, borderRadius:6, background:'linear-gradient(135deg,#f2ff2b,#eaff48)',
+            color:'#000', display:'flex', alignItems:'center', justifyContent:'center',
+            fontWeight:700, fontSize:10 },
+  msgMeta:{ marginLeft:'auto', display:'flex', alignItems:'center', gap:8 },
+  msgShield:{ display:'inline-flex', alignItems:'center', gap:6, fontSize:10,
+              color:'var(--neon)', fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 },
+  msgUserBody:{
+    padding:'14px 16px',
+    background:'rgba(255,255,255,0.02)',
+    border:'1px solid var(--line)',
+    borderLeft:'2px solid var(--neon)',
+    borderRadius:10,
+    fontSize:14, lineHeight:1.6, color:'var(--ink-0)',
+    whiteSpace:'pre-wrap', wordBreak:'break-word'
+  },
+
+  msgAssist:{ margin:'0 auto 28px', maxWidth:820 },
+  msgAssistHead:{ display:'flex', alignItems:'center', gap:10, marginBottom:8 },
+  avatarA:{ width:24, height:24, borderRadius:6, display:'flex', alignItems:'center',
+            justifyContent:'center', fontWeight:600, fontSize:12, border:'1px solid' },
+  msgAssistBody:{
+    fontSize:14.5, lineHeight:1.7, color:'var(--ink-0)',
+    fontFamily:"'Inter',sans-serif"
+  },
+  msgAliased:{
+    background:'rgba(242,255,43,0.03)', border:'1px dashed rgba(242,255,43,0.3)',
+    borderRadius:10, padding:14
+  },
+  aliasView:{},
+  dualToggle:{ display:'flex', gap:2, padding:2, marginLeft:10,
+              background:'rgba(255,255,255,0.04)', borderRadius:6, border:'1px solid var(--line)' },
+  dualTab:{ padding:'3px 8px', background:'transparent', border:'none',
+           borderRadius:4, fontSize:10, color:'var(--ink-2)', cursor:'pointer',
+           fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 },
+  dualTabOn:{ background:'rgba(242,255,43,0.14)', color:'var(--neon)' },
+};
+
+
+// === orbital.jsx ===
+
+// Orbital Model Picker — satellites orbiting a core
+const { useState: useStateO, useEffect: useEffectO, useRef: useRefO } = React;
+
+function OrbitalPicker({ model, setModel, onClose }){
+  const { MODELS, PROVIDER_GLYPHS } = window.SENTYNYX;
+  const [hover, setHover] = useStateO(null);
+  const [rot, setRot] = useStateO(0);
+  const rafRef = useRefO();
+
+  useEffectO(()=>{
+    let running = true;
+    const loop = ()=>{
+      if(!running) return;
+      setRot(r => r + 0.05);
+      rafRef.current = requestAnimationFrame(loop);
+    };
+    loop();
+    return ()=>{ running = false; cancelAnimationFrame(rafRef.current); };
+  },[]);
+
+  // Arrange in 3 concentric orbits
+  const orbits = [
+    { r: 120, ms: MODELS.slice(0, 5),   speed: 1.0 },
+    { r: 200, ms: MODELS.slice(5, 10),  speed: 0.6 },
+    { r: 280, ms: MODELS.slice(10, 14), speed: 0.3 },
+  ];
+
+  return (
+    <div style={op.overlay} onClick={onClose}>
+      <div style={op.stage} onClick={e=>e.stopPropagation()}>
+        <div style={op.header}>
+          <div>
+            <div style={{fontSize:10, letterSpacing:4, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>FLEET</div>
+            <div style={{fontFamily:"'Instrument Serif',serif", fontSize:34, marginTop:4}}>
+              Choose your <em style={{color:'var(--neon)'}}>orbit</em>
+            </div>
+          </div>
+          <button onClick={onClose} style={op.close}>×</button>
+        </div>
+
+        <div style={op.galaxy}>
+          {/* Orbit rings */}
+          <svg style={op.orbits} viewBox="-320 -320 640 640">
+            {orbits.map((o,i)=>(
+              <circle key={i} cx="0" cy="0" r={o.r} fill="none"
+                stroke="rgba(242,255,43,0.15)" strokeWidth="0.5"
+                strokeDasharray="2 6"/>
+            ))}
+            {/* Core glow */}
+            <circle cx="0" cy="0" r="55" fill="url(#coreGlow)"/>
+            <defs>
+              <radialGradient id="coreGlow">
+                <stop offset="0%" stopColor="#f2ff2b" stopOpacity="0.8"/>
+                <stop offset="50%" stopColor="#f2ff2b" stopOpacity="0.2"/>
+                <stop offset="100%" stopColor="#f2ff2b" stopOpacity="0"/>
+              </radialGradient>
+            </defs>
+          </svg>
+
+          {/* Core label */}
+          <div style={op.core}>
+            <div style={{fontSize:9, letterSpacing:3, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>VENDETTA</div>
+            <div style={{fontSize:12, color:'var(--neon)', fontFamily:"'JetBrains Mono',monospace", marginTop:2}}>PERIMETER</div>
+            <div style={op.coreDot}/>
+          </div>
+
+          {/* Satellites */}
+          {orbits.map((o, oi)=>
+            o.ms.map((m, mi)=>{
+              const total = o.ms.length;
+              const angle = (rot * o.speed) + (mi * (360/total));
+              const rad = (angle * Math.PI)/180;
+              const x = Math.cos(rad) * o.r;
+              const y = Math.sin(rad) * o.r;
+              const active = m.id === model.id;
+              const isHover = hover === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onMouseEnter={()=>setHover(m.id)}
+                  onMouseLeave={()=>setHover(null)}
+                  onClick={()=>{ setModel(m); setTimeout(onClose, 300); }}
+                  style={{
+                    ...op.sat,
+                    transform:`translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`,
+                    borderColor: active ? 'var(--neon)' : (isHover ? m.color : 'rgba(255,255,255,0.15)'),
+                    background: active ? 'rgba(242,255,43,0.15)' : 'rgba(10,12,20,0.8)',
+                    boxShadow: active ? '0 0 24px rgba(242,255,43,0.6)' : (isHover ? `0 0 16px ${m.color}66` : 'none'),
+                    zIndex: isHover || active ? 10 : 1
+                  }}
+                >
+                  <span style={{color:m.color, fontSize:16}}>{PROVIDER_GLYPHS[m.provider]}</span>
+                  {(isHover || active) && (
+                    <div style={op.satLabel}>
+                      <div style={{fontSize:11, fontWeight:600}}>{m.name}</div>
+                      <div style={{fontSize:9, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", marginTop:2}}>
+                        {m.provider} · {m.ctx} · {m.flash}
+                      </div>
+                    </div>
+                  )}
+                  {active && <div style={op.dockRing}/>}
+                </button>
+              );
+            })
+          )}
+
+          {/* Connection beam from core to active */}
+          {(()=>{
+            const m = MODELS.find(x=>x.id===model.id);
+            const oi = MODELS.indexOf(m) < 5 ? 0 : MODELS.indexOf(m) < 10 ? 1 : 2;
+            const o = orbits[oi];
+            const idxInOrbit = o.ms.findIndex(x=>x.id===m.id);
+            const angle = (rot * o.speed) + (idxInOrbit * (360/o.ms.length));
+            const rad = (angle * Math.PI)/180;
+            const x = Math.cos(rad) * o.r;
+            const y = Math.sin(rad) * o.r;
+            return (
+              <svg style={op.beam} viewBox="-320 -320 640 640">
+                <line x1="0" y1="0" x2={x} y2={y}
+                  stroke="var(--neon)" strokeWidth="1" opacity="0.5"
+                  strokeDasharray="3 3"/>
+              </svg>
+            );
+          })()}
+        </div>
+
+        <div style={op.footer}>
+          <div style={{display:'flex', gap:16, fontSize:11, color:'var(--ink-2)', fontFamily:"'JetBrains Mono',monospace"}}>
+            <span><span style={{color:'var(--neon)'}}>●</span> Active: {model.name}</span>
+            <span>·</span>
+            <span>{MODELS.length} models across 9 providers</span>
+          </div>
+          <div style={{fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", letterSpacing:1}}>
+            All satellites route through Vendetta before contact
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const op = {
+  overlay:{
+    position:'fixed', inset:0, zIndex:200,
+    background:'radial-gradient(ellipse at center, rgba(5,6,10,0.85), rgba(5,6,10,0.98))',
+    backdropFilter:'blur(12px)',
+    display:'flex', alignItems:'center', justifyContent:'center',
+    animation:'fadeIn 0.3s ease-out'
+  },
+  stage:{
+    position:'relative', width:760, maxWidth:'94vw', height:700, maxHeight:'94vh',
+    display:'flex', flexDirection:'column'
+  },
+  header:{
+    display:'flex', justifyContent:'space-between', alignItems:'flex-end',
+    padding:'0 20px 20px'
+  },
+  close:{
+    width:36, height:36, borderRadius:8,
+    background:'rgba(255,255,255,0.05)', border:'1px solid var(--line)',
+    color:'var(--ink-1)', fontSize:20, cursor:'pointer'
+  },
+  galaxy:{
+    flex:1, position:'relative',
+    display:'flex', alignItems:'center', justifyContent:'center'
+  },
+  orbits:{ position:'absolute', width:640, height:640 },
+  beam:{ position:'absolute', width:640, height:640, pointerEvents:'none' },
+  core:{
+    position:'absolute', top:'50%', left:'50%',
+    transform:'translate(-50%,-50%)',
+    textAlign:'center',
+    width:110, height:110,
+    border:'1px solid rgba(242,255,43,0.5)',
+    borderRadius:'50%',
+    display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
+    background:'radial-gradient(circle, rgba(242,255,43,0.08), transparent 70%)'
+  },
+  coreDot:{
+    position:'absolute', width:8, height:8, borderRadius:99,
+    background:'var(--neon)', boxShadow:'0 0 16px var(--neon)',
+    bottom:-4, left:'50%', transform:'translateX(-50%)',
+    animation:'pulse 1.5s infinite'
+  },
+  sat:{
+    position:'absolute', top:'50%', left:'50%',
+    width:44, height:44, borderRadius:'50%',
+    display:'flex', alignItems:'center', justifyContent:'center',
+    border:'1px solid rgba(255,255,255,0.15)',
+    background:'rgba(10,12,20,0.8)',
+    backdropFilter:'blur(8px)',
+    cursor:'pointer',
+    transition:'border-color 0.2s, box-shadow 0.2s, background 0.2s'
+  },
+  satLabel:{
+    position:'absolute', top:'calc(100% + 10px)', left:'50%',
+    transform:'translateX(-50%)',
+    whiteSpace:'nowrap',
+    padding:'6px 10px',
+    background:'rgba(5,6,10,0.95)',
+    border:'1px solid var(--line)',
+    borderRadius:6,
+    pointerEvents:'none',
+    zIndex:20
+  },
+  dockRing:{
+    position:'absolute', inset:-8, borderRadius:'50%',
+    border:'1px solid var(--neon)',
+    animation:'pulse 1.5s infinite'
+  },
+  footer:{
+    display:'flex', justifyContent:'space-between', alignItems:'center',
+    padding:'20px', borderTop:'1px solid var(--line)'
+  }
+};
+
+window.ORBITAL = { OrbitalPicker };
+
+
+// === xray.jsx ===
+
+// Vendetta X-ray Beam — dramatic scan + particle redaction on transmit
+const { useState: useStateX, useEffect: useEffectX, useRef: useRefX } = React;
+
+function XrayBeam({ text, spans, model, onDone }){
+  const [phase, setPhase] = useStateX('scan'); // scan -> excise -> launch -> done
+  const [progress, setProgress] = useStateX(0);
+  const { PROVIDER_GLYPHS } = window.SENTYNYX;
+
+  useEffectX(()=>{
+    let raf, start = performance.now();
+    const total = 2600;
+    const tick = (t)=>{
+      const p = Math.min(1, (t - start)/total);
+      setProgress(p);
+      if(p < 0.45) setPhase('scan');
+      else if(p < 0.75) setPhase('excise');
+      else if(p < 1) setPhase('launch');
+      else { setPhase('done'); onDone(); return; }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return ()=>cancelAnimationFrame(raf);
+  },[]);
+
+  return (
+    <div style={xb.overlay}>
+      <div style={xb.frame}>
+        {/* Corner brackets */}
+        <span style={{...xb.corner, top:12, left:12, borderTop:'2px solid var(--neon)', borderLeft:'2px solid var(--neon)'}}/>
+        <span style={{...xb.corner, top:12, right:12, borderTop:'2px solid var(--neon)', borderRight:'2px solid var(--neon)'}}/>
+        <span style={{...xb.corner, bottom:12, left:12, borderBottom:'2px solid var(--neon)', borderLeft:'2px solid var(--neon)'}}/>
+        <span style={{...xb.corner, bottom:12, right:12, borderBottom:'2px solid var(--neon)', borderRight:'2px solid var(--neon)'}}/>
+
+        <div style={xb.topBar}>
+          <div style={{display:'flex', alignItems:'center', gap:10}}>
+            <span style={xb.dot}/>
+            <span style={{fontSize:10, letterSpacing:3, fontFamily:"'JetBrains Mono',monospace", color:'var(--neon)'}}>
+              VENDETTA · {phase.toUpperCase()}
+            </span>
+          </div>
+          <div style={{fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:'var(--ink-2)'}}>
+            {(progress*100).toFixed(0)}% · {spans.length} tokens
+          </div>
+        </div>
+
+        <div style={xb.content}>
+          <TextScan text={text} spans={spans} phase={phase} progress={progress}/>
+        </div>
+
+        <div style={xb.footBar}>
+          <div style={{fontSize:10, fontFamily:"'JetBrains Mono',monospace", color:'var(--ink-3)', letterSpacing:1}}>
+            {phase==='scan' && '▸ PERIMETER SWEEP · scanning all tokens'}
+            {phase==='excise' && '▸ EXCISING · sensitive tokens aliased'}
+            {phase==='launch' && `▸ LAUNCH · routing to ${model.provider}`}
+          </div>
+          <div style={{display:'flex', alignItems:'center', gap:8, fontSize:10, fontFamily:"'JetBrains Mono',monospace"}}>
+            <span style={{color:model.color}}>{PROVIDER_GLYPHS[model.provider]}</span>
+            <span style={{color:'var(--ink-1)'}}>{model.name}</span>
+          </div>
+        </div>
+
+        <div style={xb.progressBar}>
+          <div style={{...xb.progressFill, width:`${progress*100}%`}}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TextScan({ text, spans, phase, progress }){
+  // Scan line position
+  const scanPos = phase === 'scan' ? (progress/0.45) : 1;
+
+  return (
+    <div style={xb.scanWrap}>
+      <div style={xb.textReveal}>
+        {renderAnimatedText(text, spans, phase, progress)}
+      </div>
+
+      {/* Scan line */}
+      {phase === 'scan' && (
+        <div style={{
+          ...xb.scanLine,
+          top: `${scanPos * 100}%`
+        }}/>
+      )}
+
+      {/* Post-scan indexing grid */}
+      {(phase === 'excise' || phase === 'launch') && (
+        <div style={xb.indexOverlay}>
+          {spans.slice(0, 8).map((s,i)=>(
+            <div key={i} style={{
+              ...xb.indexChip,
+              animation: `chipIn 0.4s ${i*0.06}s both`
+            }}>
+              <span style={{color:'var(--ink-3)', fontSize:9}}>{s.kind}</span>
+              <span style={{color:'var(--ink-3)'}}>→</span>
+              <span style={{color:'var(--neon)'}}>{s.alias}</span>
+            </div>
+          ))}
+          {spans.length > 8 && (
+            <div style={{...xb.indexChip, color:'var(--ink-2)'}}>
+              +{spans.length - 8} more
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Launch particles */}
+      {phase === 'launch' && (
+        <div style={xb.launchFx}>
+          {Array.from({length:24}).map((_,i)=>(
+            <span key={i} style={{
+              ...xb.particle,
+              left: `${Math.random()*100}%`,
+              top: `${30 + Math.random()*40}%`,
+              animation: `launchUp ${0.6 + Math.random()*0.4}s ${Math.random()*0.3}s ease-out forwards`
+            }}/>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderAnimatedText(text, spans, phase, progress){
+  if(!spans.length) return <span style={{whiteSpace:'pre-wrap'}}>{text}</span>;
+  const parts = [];
+  let cur = 0;
+  spans.forEach((s,i)=>{
+    if(s.start > cur) parts.push(<span key={'p'+i}>{text.slice(cur, s.start)}</span>);
+    if(phase === 'scan'){
+      parts.push(<span key={'h'+i} className="vend-hit" style={{background:'rgba(242,255,43,0.3)'}}>{text.slice(s.start, s.end)}</span>);
+    } else if(phase === 'excise'){
+      parts.push(
+        <span key={'h'+i} className="excising" style={{
+          display:'inline-block',
+          animation: `excise 0.5s ${i*0.04}s forwards`,
+          position:'relative'
+        }}>
+          <span style={{background:'rgba(242,255,43,0.4)', padding:'1px 4px', borderRadius:3}}>
+            {text.slice(s.start, s.end)}
+          </span>
+        </span>
+      );
+    } else {
+      // launch/done: show alias in place
+      parts.push(
+        <span key={'h'+i} style={{
+          color:'var(--neon)',
+          background:'rgba(242,255,43,0.1)',
+          padding:'1px 4px', borderRadius:3,
+          fontFamily:"'JetBrains Mono',monospace",
+          fontSize:'0.9em',
+          animation:'aliasIn 0.4s forwards'
+        }}>
+          {s.alias}
+        </span>
+      );
+    }
+    cur = s.end;
+  });
+  if(cur < text.length) parts.push(<span key="tail">{text.slice(cur)}</span>);
+  return <span style={{whiteSpace:'pre-wrap', lineHeight:1.8}}>{parts}</span>;
+}
+
+const xb = {
+  overlay:{
+    position:'fixed', inset:0, zIndex:300,
+    background:'rgba(5,6,10,0.88)', backdropFilter:'blur(20px)',
+    display:'flex', alignItems:'center', justifyContent:'center',
+    animation:'fadeIn 0.2s ease-out'
+  },
+  frame:{
+    position:'relative',
+    width:'min(860px, 92vw)', maxHeight:'84vh',
+    background:'rgba(10,12,20,0.96)',
+    border:'1px solid rgba(242,255,43,0.3)',
+    borderRadius:12,
+    boxShadow:'0 0 60px rgba(242,255,43,0.2), 0 20px 80px rgba(0,0,0,0.6)',
+    display:'flex', flexDirection:'column',
+    overflow:'hidden'
+  },
+  corner:{ position:'absolute', width:14, height:14, pointerEvents:'none' },
+  topBar:{
+    display:'flex', justifyContent:'space-between', alignItems:'center',
+    padding:'14px 20px', borderBottom:'1px solid var(--line)'
+  },
+  dot:{ width:8, height:8, borderRadius:99, background:'var(--neon)', boxShadow:'0 0 12px var(--neon)', animation:'pulse 1s infinite' },
+  content:{ flex:1, overflow:'auto', padding:'24px 28px' },
+  footBar:{
+    display:'flex', justifyContent:'space-between', alignItems:'center',
+    padding:'12px 20px', borderTop:'1px solid var(--line)',
+    background:'rgba(242,255,43,0.03)'
+  },
+  progressBar:{ height:2, background:'rgba(255,255,255,0.05)' },
+  progressFill:{ height:'100%', background:'var(--neon)', boxShadow:'0 0 8px var(--neon)', transition:'width 0.05s linear' },
+
+  scanWrap:{ position:'relative', minHeight:180 },
+  textReveal:{
+    fontSize:15, lineHeight:1.8, color:'var(--ink-0)',
+    fontFamily:"'Inter',sans-serif"
+  },
+  scanLine:{
+    position:'absolute', left:-12, right:-12, height:2,
+    background:'linear-gradient(90deg, transparent, var(--neon), transparent)',
+    boxShadow:'0 0 16px var(--neon)',
+    transition:'top 0.05s linear'
+  },
+  indexOverlay:{
+    marginTop:24, paddingTop:16, borderTop:'1px dashed var(--line)',
+    display:'flex', flexWrap:'wrap', gap:6
+  },
+  indexChip:{
+    display:'inline-flex', alignItems:'center', gap:6,
+    padding:'4px 10px', background:'rgba(255,255,255,0.03)',
+    border:'1px solid var(--line)', borderRadius:99,
+    fontSize:10, fontFamily:"'JetBrains Mono',monospace",
+    opacity:0
+  },
+  launchFx:{ position:'absolute', inset:0, pointerEvents:'none' },
+  particle:{
+    position:'absolute', width:3, height:3, borderRadius:99,
+    background:'var(--neon)', boxShadow:'0 0 6px var(--neon)'
+  }
+};
+
+window.XRAY = { XrayBeam };
+
+
+// === app.jsx ===
+
+// Main app shell
+const { useState: useStateA, useEffect: useEffectA, useRef: useRefA } = React;
+
+function App(){
+  const { MODELS } = window.SENTYNYX;
+  const TWEAKS_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "accent": "#f2ff2b",
+    "density": "comfy",
+    "starfield": true,
+    "scanAnim": true,
+    "defaultModelIdx": 3
+  }/*EDITMODE-END*/;
+  const [tweaks, setTweaks] = useStateA(TWEAKS_DEFAULTS);
+  const [tweaksOpen, setTweaksOpen] = useStateA(false);
+  const [model, setModel] = useStateA(MODELS[TWEAKS_DEFAULTS.defaultModelIdx || 3]);
+  const [activeConvo, setActiveConvo] = useStateA('c1');
+  const [messages, setMessages] = useStateA([]);
+  const [draft, setDraft] = useStateA(`Draft a memo to the Project Helios exec team summarizing Q4 results for Northwind Capital. Include projected revenue of $42,500,000 and cc Sarah Chen at sarah.chen@halcyonlabs.com. Server SSH access via 192.168.24.17 — API key sk-halc-9f8d7c6b5a4e3d2c1 must be rotated. Employee EMP-47291 will lead follow-up.`);
+  const [spans, setSpans] = useStateA([]);
+  const [vendettaOpen, setVendettaOpen] = useStateA(true);
+  const [aliasMode, setAliasMode] = useStateA('alias');
+  const [booting, setBooting] = useStateA(false);
+  const [orbitalOpen, setOrbitalOpen] = useStateA(false);
+  const [xraying, setXraying] = useStateA(null); // {text, spans}
+  const [revealMode, setRevealMode] = useStateA({});
+  const [showBoot, setShowBoot] = useStateA(true);
+  const [cmdOpen, setCmdOpen] = useStateA(false);
+  const [consensusOpen, setConsensusOpen] = useStateA(false);
+  const [complianceOpen, setComplianceOpen] = useStateA(false);
+  const [agentOpen, setAgentOpen] = useStateA(false);
+  const [violation, setViolation] = useStateA(null);
+
+  // Global ⌘K listener
+  useEffectA(()=>{
+    const h = (e)=>{
+      if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); setCmdOpen(o=>!o); }
+      if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='m'){ e.preventDefault(); setConsensusOpen(true); }
+      if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='d'){ e.preventDefault(); setComplianceOpen(true); }
+      if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='g'){ e.preventDefault(); setAgentOpen(true); }
+      if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='o'){ e.preventDefault(); setOrbitalOpen(true); }
+    };
+    window.addEventListener('keydown', h);
+    return ()=>window.removeEventListener('keydown', h);
+  },[]);
+
+  const runCmd = (k)=>{
+    if(k==='orbital') setOrbitalOpen(true);
+    if(k==='consensus') setConsensusOpen(true);
+    if(k==='compliance') setComplianceOpen(true);
+    if(k==='agent') setAgentOpen(true);
+    if(k==='toggle-v') setVendettaOpen(o=>!o);
+    if(k==='newchat') setMessages([]);
+  };
+
+  useEffectA(()=>{
+    const handler = (e)=>{
+      if(!e.data) return;
+      if(e.data.type === '__activate_edit_mode') setTweaksOpen(true);
+      if(e.data.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({type:'__edit_mode_available'}, '*');
+    return ()=>window.removeEventListener('message', handler);
+  },[]);
+
+  const updateTweak = (k, v) => {
+    setTweaks(prev => {
+      const next = { ...prev, [k]: v };
+      try { window.parent.postMessage({type:'__edit_mode_set_keys', edits:{[k]:v}}, '*'); } catch(e){}
+      return next;
+    });
+    if(k === 'accent'){
+      document.documentElement.style.setProperty('--neon', v);
+    }
+  };
+
+  useEffectA(()=>{
+    document.documentElement.style.setProperty('--neon', tweaks.accent);
+  },[tweaks.accent]);
+
+  const send = (text, sp)=>{
+    // Check for critical policy violations
+    const crit = sp.find(s => window.VendettaCritical && window.VendettaCritical[s.kind]);
+    if(crit){
+      setViolation({ ...window.VendettaCritical[crit.kind], raw: crit.raw });
+      return;
+    }
+    setXraying({ text, spans: sp });
+  };
+
+  const actuallyTransmit = (text, sp)=>{
+    setXraying(null);
+    setMessages(ms => [...ms, { role:'user', text, spans:sp }]);
+    // Fake streaming assistant reply
+    const reply = makeReply(text, sp, model);
+    setMessages(ms => [...ms, { role:'assistant', text:'', streaming:true, spans:sp }]);
+    let i = 0;
+    const iv = setInterval(()=>{
+      i += Math.max(1, Math.floor(Math.random()*3));
+      setMessages(ms => {
+        const copy = ms.slice();
+        const last = copy[copy.length-1];
+        if(!last || last.role!=='assistant') return ms;
+        copy[copy.length-1] = { ...last, text: reply.slice(0, i), streaming: i<reply.length };
+        return copy;
+      });
+      if(i >= reply.length) clearInterval(iv);
+    }, 18);
+  };
+
+  const { Sidebar, TopBar, VendettaPanel } = window.UI_CHROME;
+  const { Composer, Transcript } = window.UI_CHAT;
+
+  return (
+    <>
+      <BootOverlay visible={booting}/>
+      <div style={{display:'flex', flex:1, minHeight:0}}>
+        <Sidebar activeId={activeConvo} onSelect={setActiveConvo} onNew={()=>setMessages([])}/>
+        <div style={{flex:1, display:'flex', flexDirection:'column', minWidth:0, position:'relative'}}>
+          <TopBar model={model} setModel={setModel}
+            onOpenVendetta={()=>setVendettaOpen(o=>!o)}
+            onOpenOrbital={()=>setOrbitalOpen(true)}
+            onOpenCmd={()=>setCmdOpen(true)}
+            onOpenConsensus={()=>setConsensusOpen(true)}
+            onOpenCompliance={()=>setComplianceOpen(true)}
+            onOpenAgent={()=>setAgentOpen(true)}/>
+          <div style={{flex:1, display:'flex', flexDirection:'column', minHeight:0, marginRight: vendettaOpen ? 360 : 0, transition:'margin 0.35s'}}>
+            <Transcript messages={messages} model={model}/>
+            <Composer
+              model={model}
+              onSend={send}
+              spans={spans}
+              setSpans={setSpans}
+              text={draft}
+              setText={setDraft}
+              onToggleVendetta={()=>setVendettaOpen(o=>!o)}
+              vendettaOpen={vendettaOpen}
+            />
+          </div>
+        </div>
+      </div>
+      <VendettaPanel
+        spans={spans}
+        open={vendettaOpen}
+        onClose={()=>setVendettaOpen(false)}
+        rawText={draft}
+        aliasMode={aliasMode}
+        setAliasMode={setAliasMode}
+      />
+      {tweaksOpen && <TweaksPanel tweaks={tweaks} update={updateTweak} onClose={()=>setTweaksOpen(false)}/>}
+      {orbitalOpen && <window.ORBITAL.OrbitalPicker model={model} setModel={setModel} onClose={()=>setOrbitalOpen(false)}/>}
+      {xraying && <window.XRAY.XrayBeam text={xraying.text} spans={xraying.spans} model={model} onDone={()=>actuallyTransmit(xraying.text, xraying.spans)}/>}
+      {showBoot && <window.FEATURES.BootSequence onDone={()=>setShowBoot(false)}/>}
+      {violation && <window.FEATURES.PolicyViolation rule={violation} onDismiss={()=>setViolation(null)}/>}
+      {cmdOpen && <window.FEATURES.CommandPalette open={cmdOpen} onClose={()=>setCmdOpen(false)} onAction={runCmd}/>}
+      {consensusOpen && <window.BIG.ConsensusArena prompt={draft} models={[MODELS[3], MODELS[0], MODELS[6]]} onClose={()=>setConsensusOpen(false)}/>}
+      {complianceOpen && <window.BIG.ComplianceDashboard onClose={()=>setComplianceOpen(false)}/>}
+      {agentOpen && <window.BIG.AgentDAG onClose={()=>setAgentOpen(false)}/>}
+      {!showBoot && <window.FEATURES.ThreatRadar/>}
+    </>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+function TweaksPanel({ tweaks, update, onClose }){
+  const accents = [
+    { c:'#f2ff2b', n:'Electric'},
+    { c:'#b3ff3c', n:'Toxic'},
+    { c:'#ff3cc1', n:'Fuchsia'},
+    { c:'#3cf0ff', n:'Plasma'},
+    { c:'#ff7a2b', n:'Ember'},
+    { c:'#ffffff', n:'White'},
+  ];
+  return (
+    <div style={{
+      position:'fixed', right:20, bottom:20, width:300, zIndex:200,
+      background:'rgba(10,12,20,0.94)', backdropFilter:'blur(20px)',
+      border:'1px solid rgba(255,255,255,0.12)', borderRadius:12,
+      boxShadow:'0 20px 60px rgba(0,0,0,0.6)', padding:16, color:'#fff'
+    }}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14}}>
+        <div style={{fontSize:11, letterSpacing:3, fontFamily:"'JetBrains Mono',monospace", color:'var(--ink-2)'}}>TWEAKS</div>
+        <button onClick={onClose} style={{background:'transparent', border:'1px solid var(--line)', color:'var(--ink-1)', borderRadius:6, width:24, height:24, cursor:'pointer'}}>×</button>
+      </div>
+
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10, letterSpacing:2, color:'var(--ink-3)', marginBottom:8, fontFamily:"'JetBrains Mono',monospace"}}>NEON ACCENT</div>
+        <div style={{display:'flex', gap:6, flexWrap:'wrap'}}>
+          {accents.map(a=>(
+            <button key={a.c} onClick={()=>update('accent', a.c)} title={a.n} style={{
+              width:28, height:28, borderRadius:6,
+              background:a.c, cursor:'pointer',
+              border: tweaks.accent===a.c ? '2px solid #fff' : '1px solid rgba(255,255,255,0.1)',
+              boxShadow: tweaks.accent===a.c ? `0 0 12px ${a.c}` : 'none'
+            }}/>
+          ))}
+        </div>
+      </div>
+
+      <div style={{marginBottom:14}}>
+        <div style={{fontSize:10, letterSpacing:2, color:'var(--ink-3)', marginBottom:8, fontFamily:"'JetBrains Mono',monospace"}}>DEFAULT MODEL</div>
+        <select value={tweaks.defaultModelIdx} onChange={e=>update('defaultModelIdx', +e.target.value)}
+          style={{width:'100%', padding:8, background:'rgba(255,255,255,0.03)', border:'1px solid var(--line)', color:'#fff', borderRadius:6, fontSize:12}}>
+          {window.SENTYNYX.MODELS.map((m,i)=>(
+            <option key={m.id} value={i} style={{background:'#10131c'}}>{m.provider} — {m.name}</option>
+          ))}
+        </select>
+      </div>
+
+      <div style={{display:'flex', gap:10, marginBottom:10}}>
+        <label style={{display:'flex', alignItems:'center', gap:6, fontSize:11, color:'var(--ink-1)', cursor:'pointer'}}>
+          <input type="checkbox" checked={tweaks.starfield} onChange={e=>update('starfield', e.target.checked)}/>
+          Starfield
+        </label>
+        <label style={{display:'flex', alignItems:'center', gap:6, fontSize:11, color:'var(--ink-1)', cursor:'pointer'}}>
+          <input type="checkbox" checked={tweaks.scanAnim} onChange={e=>update('scanAnim', e.target.checked)}/>
+          Scan animation
+        </label>
+      </div>
+
+      <div style={{fontSize:9, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", letterSpacing:1, marginTop:8}}>
+        Try typing more PII in the composer to see Vendetta react in real-time.
+      </div>
+    </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+function makeReply(text, spans, model){
+  const n = spans.length;
+  const list = [...new Set(spans.map(s=>s.kind))].map(k=>k.toLowerCase()).join(', ') || 'none';
+  return `Routed through the Vendetta perimeter. ${n} sensitive token${n===1?'':'s'} (${list}) were aliased before the payload reached ${model.provider}. The upstream model saw only structural placeholders — response values have been re-hydrated locally.
+
+Here is a draft based on your brief:
+
+• Executive summary is scoped to the quarter's financial narrative without exposing counterparties.
+• Placeholder callouts map back to the original entities only on your machine.
+• Suggested next steps are non-destructive — no outbound action will execute until you approve.
+
+Want me to tighten the tone, expand the financial section, or pivot to a slide outline?`;
+}
+
+// ——————————————————————————————————————————————————————————————
+function BootOverlay({ visible }){
+  return (
+    <div style={{
+      position:'fixed', inset:0, zIndex:1000,
+      background:'radial-gradient(ellipse at center, rgba(5,6,10,0.95), #05060a 70%)',
+      display:'flex', alignItems:'center', justifyContent:'center',
+      opacity: visible?1:0, pointerEvents: visible?'auto':'none',
+      transition:'opacity 0.6s'
+    }}>
+      <div style={{textAlign:'center'}}>
+        <div style={{position:'relative', width:120, height:120, margin:'0 auto 20px'}}>
+          <div style={{
+            position:'absolute', inset:0, borderRadius:'50%',
+            border:'1px solid rgba(242,255,43,0.2)',
+            animation:'spin 4s linear infinite'
+          }}/>
+          <div style={{
+            position:'absolute', inset:10, borderRadius:'50%',
+            border:'1px solid rgba(242,255,43,0.4)', borderTopColor:'transparent',
+            animation:'spin 2s linear infinite reverse'
+          }}/>
+          <div style={{
+            position:'absolute', inset:'40%', borderRadius:'50%',
+            background:'var(--neon)', boxShadow:'0 0 40px var(--neon)'
+          }}/>
+        </div>
+        <div style={{fontSize:10, letterSpacing:6, color:'var(--neon)',
+                     fontFamily:"'JetBrains Mono',monospace"}}>
+          SENTYNYX · ORBITAL HANDSHAKE
+        </div>
+        <div style={{fontSize:10, letterSpacing:3, color:'var(--ink-3)',
+                     fontFamily:"'JetBrains Mono',monospace", marginTop:8}}>
+          Vendetta perimeter online
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ——————————————————————————————————————————————————————————————
+// Inject global animation CSS + Vendetta highlight CSS
+const globalCSS = document.createElement('style');
+globalCSS.textContent = `
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+  @keyframes spin  { to { transform: rotate(360deg); } }
+  @keyframes vend-pop {
+    0% { background: rgba(242,255,43,0); box-shadow: 0 0 0 rgba(242,255,43,0); }
+    60% { background: rgba(242,255,43,0.35); box-shadow: 0 0 14px rgba(242,255,43,0.6); }
+    100% { background: rgba(242,255,43,0.18); box-shadow: 0 0 6px rgba(242,255,43,0.25); }
+  }
+  .vend-hit {
+    position: relative;
+    background: rgba(242,255,43,0.18);
+    color: #f2ff2b;
+    padding: 1px 4px;
+    margin: 0 1px;
+    border-radius: 3px;
+    border-bottom: 1px solid rgba(242,255,43,0.6);
+    box-shadow: 0 0 6px rgba(242,255,43,0.25);
+    animation: vend-pop 0.35s ease-out;
+    text-shadow: 0 0 10px rgba(242,255,43,0.5);
+    transition: background 0.2s;
+  }
+  .vend-tag {
+    display: none;
+  }
+  .vend-hit:hover .vend-tag {
+    display: inline-block;
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #05060a;
+    color: #f2ff2b;
+    border: 1px solid rgba(242,255,43,0.5);
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 9px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    z-index: 20;
+    pointer-events: none;
+    box-shadow: 0 0 12px rgba(242,255,43,0.3);
+  }
+  /* Scan line effect on hits */
+  .vend-hit::before {
+    content:'';
+    position:absolute; inset:0;
+    background: linear-gradient(90deg, transparent, rgba(242,255,43,0.4), transparent);
+    background-size: 200% 100%;
+    animation: scan 2s linear infinite;
+    mix-blend-mode: overlay;
+    pointer-events:none;
+    border-radius: inherit;
+  }
+  @keyframes scan {
+    from { background-position: 200% 0; }
+    to   { background-position: -200% 0; }
+  }
+
+  .caret {
+    display:inline-block; width:8px; height:16px;
+    background: var(--neon);
+    box-shadow: 0 0 8px var(--neon);
+    vertical-align: text-bottom;
+    animation: blink 0.8s steps(2) infinite;
+    margin-left: 2px;
+  }
+  @keyframes blink { 50% { opacity:0 } }
+
+  /* Scrollbars */
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 8px; }
+  *::-webkit-scrollbar-thumb:hover { background: rgba(242,255,43,0.2); }
+
+  /* Hover polish */
+  button[style*="newBtn"]:hover,
+  button:hover { filter: brightness(1.15); }
+
+  .sug-card:hover { border-color: rgba(242,255,43,0.3) !important; }
+
+  textarea::placeholder { color: rgba(255,255,255,0.25); }
+
+  @keyframes fadeIn { from { opacity:0 } to { opacity:1 } }
+  @keyframes chipIn { from { opacity:0; transform:translateY(6px) } to { opacity:1; transform:translateY(0) } }
+  @keyframes excise {
+    0% { transform:scale(1); opacity:1; filter:blur(0) }
+    40% { transform:scale(1.1); filter: blur(0.5px) hue-rotate(30deg); box-shadow: 0 0 20px var(--neon) }
+    100% { transform:scale(0.6) translateY(-10px); opacity:0; filter:blur(2px) }
+  }
+  @keyframes aliasIn {
+    from { opacity:0; transform:scale(0.7); filter:blur(3px) }
+    to { opacity:1; transform:scale(1); filter:blur(0) }
+  }
+  @keyframes bootLetter {
+    from { opacity:0; transform:translateY(20px) }
+    to { opacity:1; transform:translateY(0) }
+  }
+  @keyframes bootLine {
+    from { opacity:0; transform:translateX(-8px) }
+    to { opacity:1; transform:translateX(0) }
+  }
+  @keyframes shakeIn {
+    0% { opacity:0 }
+    20% { opacity:1; transform:translateX(-6px) }
+    40% { transform:translateX(6px) }
+    60% { transform:translateX(-4px) }
+    80% { transform:translateX(4px) }
+    100% { transform:translateX(0) }
+  }
+  @keyframes glitchV {
+    0%,100% { transform:translateY(0) }
+    50% { transform:translateY(2px) }
+  }
+  @keyframes modalIn {
+    from { opacity:0; transform:scale(0.9) }
+    to { opacity:1; transform:scale(1) }
+  }
+  @keyframes launchUp {
+    from { opacity:1; transform:translate(0,0) scale(1) }
+    to { opacity:0; transform:translate(calc(60vw - 50%), -80vh) scale(0.3) }
+  }
+
+  /* Tweaks panel (lives in DOM but hidden until activated) */
+  #tweaks-panel { transition: transform 0.3s; }
+`;
+document.head.appendChild(globalCSS);
+
+// ——————————————————————————————————————————————————————————————
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+
+</script>
+</body>
+</html>

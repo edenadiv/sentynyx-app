@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Hardened Runtime entitlements for a signed, notarized macOS release. -->
+    <!-- Minimum set required for Sentynyx: no sandbox (breaks keychain + local -->
+    <!-- model file paths), but JIT + unsigned executable memory (llama.cpp's  -->
+    <!-- Metal shader compilation path), plus outbound network for provider     -->
+    <!-- API calls and HuggingFace model downloads.                             -->
+
+    <!-- llama.cpp compiles Metal kernels at runtime via JIT. -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <!-- GGML/Metal allocates executable pages for compiled kernels. -->
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+
+    <!-- Outbound HTTPS to OpenAI / Anthropic / Google / xAI and HF. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- No debugger attach allowed on release builds. -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>

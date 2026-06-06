@@ -1,0 +1,47 @@
+Sentynyx
+Copyright (c) 2026 Sentynyx / Eden Adiv
+
+This product is licensed under the GNU Affero General Public License v3.0
+(see the LICENSE file).
+
+================================================================================
+Third-party components
+================================================================================
+
+Sentynyx bundles, links against, or downloads at runtime the following
+third-party software and models, each under its own license. This NOTICE is
+provided for attribution; it is not exhaustive of transitive dependencies (see
+Cargo.lock and pnpm-lock.yaml for the full dependency graph).
+
+Frameworks & libraries
+----------------------
+- Tauri (https://tauri.app)                        — MIT / Apache-2.0
+- ONNX Runtime (https://onnxruntime.ai)            — MIT
+  Vendored as a dynamic library; see apps/desktop/vendor/onnxruntime/README.md
+- llama.cpp / llama-cpp-2                           — MIT
+- React, React DOM (https://react.dev)             — MIT
+- Rust crates (tokio, reqwest, serde, regex,
+  rusqlite, keyring, tokenizers, ndarray, etc.)    — MIT / Apache-2.0
+  See apps/desktop/src-tauri/Cargo.toml + Cargo.lock for the full list.
+
+Detection models (downloaded at runtime from Hugging Face, not bundled)
+-----------------------------------------------------------------------
+- GLiNER-small v2.1 (urchade / onnx-community)      — Apache-2.0
+- GLiNER tokenizer                                  — Apache-2.0
+- Qwen 2.5 0.5B Instruct (GGUF, Alibaba Cloud)      — Apache-2.0 (Qwen license)
+
+Fonts
+-----
+- Instrument Serif                                  — SIL Open Font License 1.1
+- JetBrains Mono                                    — SIL Open Font License 1.1
+- Inter                                             — SIL Open Font License 1.1
+
+Optional integration
+--------------------
+- Ollama (https://ollama.com) — used via its local HTTP API when installed by
+  the user; not bundled. Ollama is MIT-licensed.
+
+================================================================================
+Each component remains the property of its respective copyright holders and is
+used in accordance with its license. Full license texts are available from the
+upstream projects linked above.
