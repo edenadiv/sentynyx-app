@@ -50,7 +50,7 @@ or grab the `.dmg` from [Releases](https://github.com/edenadiv/sentynyx-app/rele
 
 ```bash
 git clone https://github.com/edenadiv/sentynyx-app.git
-cd sentynyx/apps/desktop
+cd sentynyx-app/apps/desktop
 pnpm install
 ./scripts/stage-sidecar.sh    # builds the NER sidecar binary
 pnpm tauri dev                # dev window with hot reload
@@ -108,7 +108,7 @@ apps/desktop/            # the app
     src/providers/       # openai · anthropic · google · xai · ollama · local
     eval/                # reproducible detection benchmark + corpus
 Sentynyx.html            # zero-build interactive web demo
-scripts/                 # install.sh, public-repo helpers
+scripts/                 # install.sh
 ```
 
 ## Build details

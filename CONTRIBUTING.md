@@ -12,7 +12,7 @@ Thanks for helping build an auditable privacy layer for LLMs. This guide gets yo
 
 ```bash
 git clone https://github.com/edenadiv/sentynyx-app.git
-cd sentynyx/apps/desktop
+cd sentynyx-app/apps/desktop
 pnpm install
 ./scripts/stage-sidecar.sh     # builds the git-ignored NER sidecar binary
 pnpm tauri dev                 # run the app with hot reload

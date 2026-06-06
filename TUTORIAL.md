@@ -20,7 +20,7 @@ This downloads the latest signed `.dmg`, verifies it, and drops `Sentynyx.app` i
 
 ```bash
 git clone https://github.com/edenadiv/sentynyx-app.git
-cd sentynyx/apps/desktop
+cd sentynyx-app/apps/desktop
 pnpm install
 ./scripts/stage-sidecar.sh
 pnpm tauri dev
