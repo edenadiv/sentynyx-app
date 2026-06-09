@@ -37,7 +37,7 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
     { n: "REDACTIONS · 7D", v: metrics.redactions_7d.toLocaleString(), s: "aliased before egress", c: "var(--neon)" },
     { n: "BLOCKS · 7D", v: metrics.blocks_7d.toLocaleString(), s: "egress prevented", c: metrics.blocks_7d > 0 ? "#ff99a8" : "var(--good)" },
     { n: "TOKEN CLASSES", v: String(metrics.classes), s: "distinct kinds observed", c: "var(--good)" },
-    { n: "REGEX ENGINE", v: "ACTIVE", s: "36 patterns · 7 packs", c: "var(--good)" },
+    { n: "REGEX ENGINE", v: "ACTIVE", s: "38 patterns · 7 packs", c: "var(--good)" },
     { n: "SEMANTIC LAYERS", v: nerReady ? (paranoidReady ? "NER + LLM" : "NER") : "OFF", s: nerReady ? "on-device models loaded" : "download via Settings", c: nerReady ? "var(--good)" : "var(--ink-3)" },
   ];
 
