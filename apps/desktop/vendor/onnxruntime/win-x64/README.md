@@ -29,6 +29,16 @@ that DLL in the installer so Sentynyx doesn't depend on the user's
 
 ## Verification
 
+The committed DLL is the unmodified upstream release artifact:
+
+```
+sha256(onnxruntime.dll) = 579b636403983254346a5c1d80bd28f1519cd1e284cd204f8d4ff41f8d711559
+```
+
+(from `onnxruntime-win-x64-1.22.0.zip` → `lib/onnxruntime.dll` at
+https://github.com/microsoft/onnxruntime/releases/tag/v1.22.0 — verify a
+fresh download against the same hash before replacing it.)
+
 After copying, a fresh `cargo build` on Windows should no longer print
 the `cargo:warning=Vendored ORT DLL not found ...` message. If it still
 does, check the exact filename — it must be `onnxruntime.dll`, not

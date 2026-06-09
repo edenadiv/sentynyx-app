@@ -106,22 +106,27 @@ jobs:
         working-directory: apps/desktop/src-tauri
         run: cargo check --all-targets
 
-  # --- Rust check on Windows (DISABLED) ---------------------------------
-  # Windows CI was aspirational (phase 4 scaffolded icons; phase 5
-  # added cargo-check-windows) but is intentionally disabled per
-  # CHANGELOG v0.2.0 Known limitations: libonnxruntime.dll is not
-  # yet committed. Re-enable by uncommenting the block below once
-  # the vendored .dll lands.
-  #
-  # cargo-check-windows:
-  #   needs: config-assets
-  #   runs-on: windows-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: dtolnay/rust-toolchain@stable
-  #     - uses: Swatinem/rust-cache@v2
-  #       with: { workspaces: apps/desktop/src-tauri }
-  #     - name: cargo check
-  #       working-directory: apps/desktop/src-tauri
-  #       shell: pwsh
-  #       run: cargo check --all-targets
+  # --- Rust check on Windows --------------------------------------------
+  # Enabled now that vendor/onnxruntime/win-x64/onnxruntime.dll is committed
+  # (1.22.0, sha256 579b6364…). Proves the "Windows builds from source"
+  # claim on every PR. Like the macOS job, the NER sidecar external binary
+  # is stubbed — tauri-build validates its existence; cargo check never
+  # executes it.
+  cargo-check-windows:
+    needs: config-assets
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: apps/desktop/src-tauri }
+      - name: Stub sentynyx-ner sidecar for tauri-build
+        working-directory: apps/desktop/src-tauri
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force binaries | Out-Null
+          Set-Content -Path binaries/sentynyx-ner-x86_64-pc-windows-msvc.exe -Value 'stub'
+      - name: cargo check
+        working-directory: apps/desktop/src-tauri
+        shell: pwsh
+        run: cargo check --all-targets
