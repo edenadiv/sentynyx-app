@@ -8,6 +8,12 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **OpenRouter provider**: one `sk-or-` key unlocks the open-model catalog —
+  Llama 4 Maverick, DeepSeek V4 Pro, Mistral Large, Qwen3.7 Plus, and
+  Command A ship in the picker (ids verified against the live catalog),
+  routed via the `openrouter:` prefix through the same Vendetta pipeline.
+  This honestly restores the Meta/Mistral/DeepSeek/Cohere tiles that v0.4.0
+  removed as unwired demo scaffolding.
 - **Guided-tour E2E + recorded demo**: `pnpm e2e` walks all 11 tour steps
   headlessly against the browser preview (Playwright) asserting each advances
   on its real event — including the SSN block — with zero page errors; runs

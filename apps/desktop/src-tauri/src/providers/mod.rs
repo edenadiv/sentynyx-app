@@ -4,6 +4,7 @@ pub mod google;
 pub mod xai;
 pub mod local;
 pub mod ollama;
+pub mod openrouter;
 
 use async_trait::async_trait;
 use tokio::sync::mpsc;

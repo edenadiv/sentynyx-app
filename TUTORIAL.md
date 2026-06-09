@@ -40,9 +40,9 @@ On first run Sentynyx fetches its detection models (~1.1 GB total: GLiNER for se
 
 Open **Settings** (`⌘,`). You have three independent options — use any or all.
 
-### A) Bring your own cloud key (OpenAI / Anthropic / Google / xAI)
+### A) Bring your own cloud key (OpenAI / Anthropic / Google / xAI / OpenRouter)
 
-1. In Settings, find the provider, paste your API key (`sk-…`, `sk-ant-…`, `AIza…`, `xai-…`).
+1. In Settings, find the provider, paste your API key (`sk-…`, `sk-ant-…`, `AIza…`, `xai-…`, `sk-or-…`). One OpenRouter key unlocks Llama, DeepSeek, Mistral, Qwen, and Command.
 2. Click **Save**. Sentynyx validates the key live and stores it in your **OS keychain** — it never reaches the UI layer or disk in plaintext.
 3. The provider's models are now selectable in the picker.
 

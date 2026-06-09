@@ -13,16 +13,24 @@ export const MODELS: Model[] = [
   { id:"gemini-2-5-pro", name:"Gemini 2.5 Pro",   provider:"Google",     ctx:"2M",   flash:"Long ctx", color:"#4285f4" },
   { id:"gemini-flash",   name:"Gemini Flash 2.5", provider:"Google",     ctx:"1M",   flash:"Fast",     color:"#4285f4" },
   { id:"grok-4",         name:"Grok 4",           provider:"xAI",        ctx:"256K", flash:"Realtime", color:"#ffffff" },
+  // One OpenRouter key unlocks all of these (ids verified against the live
+  // openrouter.ai catalog). Routed by the `openrouter:` prefix.
+  { id:"openrouter:meta-llama/llama-4-maverick",  name:"Llama 4 Maverick",  provider:"OpenRouter", ctx:"1M",   flash:"Open",     color:"#1877f2" },
+  { id:"openrouter:deepseek/deepseek-v4-pro",     name:"DeepSeek V4 Pro",   provider:"OpenRouter", ctx:"1M",   flash:"Reasoning",color:"#4d6bfe" },
+  { id:"openrouter:mistralai/mistral-large-2512", name:"Mistral Large",     provider:"OpenRouter", ctx:"262K", flash:"EU",       color:"#ff7000" },
+  { id:"openrouter:qwen/qwen3.7-plus",            name:"Qwen3.7 Plus",      provider:"OpenRouter", ctx:"1M",   flash:"Long ctx", color:"#8b5cf6" },
+  { id:"openrouter:cohere/command-a",             name:"Command A",         provider:"OpenRouter", ctx:"256K", flash:"RAG",      color:"#ff6b9d" },
   { id:"sentynyx-local", name:"Sentynyx Local",   provider:"On-device",  ctx:"32K",  flash:"Private",  color:"#f2ff2b" },
 ];
 
 export const PROVIDER_GLYPHS: Record<string, string> = {
   "OpenAI": "◎", "Anthropic": "✦", "Google": "◆", "xAI": "𝕏",
-  "Ollama": "⊙", "On-device": "●",
+  "OpenRouter": "⌬", "Ollama": "⊙", "On-device": "●",
 };
 
 /** Tauri provider key by model id. null = no key needed (Ollama / on-device). */
-export function providerKey(modelId: string): "openai" | "anthropic" | "google" | "xai" | null {
+export function providerKey(modelId: string): "openai" | "anthropic" | "google" | "xai" | "openrouter" | null {
+  if (modelId.startsWith("openrouter:")) return "openrouter";
   if (modelId.startsWith("gpt") || modelId === "o4") return "openai";
   if (modelId.startsWith("claude")) return "anthropic";
   if (modelId.startsWith("gemini")) return "google";

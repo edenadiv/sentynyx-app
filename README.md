@@ -6,7 +6,7 @@
 
 Every prompt is routed through the **Vendetta** engine — a real-time PII / sensitive-info detector that aliases emails, phones, SSNs, API keys, project codenames, employee IDs, money values, names, and more into opaque tokens **before** the payload ever leaves your machine. The model only ever sees `⟦email_01⟧`; you see the real values, re-hydrated locally in the response.
 
-Bring your own API keys (OpenAI · Anthropic · Google · xAI), run models fully offline via **Ollama**, or use the bundled on-device model. Your raw text never touches our servers — there are no servers. Don't trust us: [read `vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs).
+Bring your own API keys (OpenAI · Anthropic · Google · xAI · OpenRouter), run models fully offline via **Ollama**, or use the bundled on-device model. Your raw text never touches our servers — there are no servers. Don't trust us: [read `vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs).
 
 [Quick start](#quick-start) · [Tutorial](TUTORIAL.md) · [Live demo](#live-demo) · [How it works](#how-it-works) · [Open-core](OPEN-CORE.md) · [Contributing](CONTRIBUTING.md)
 
@@ -67,7 +67,7 @@ Linux build deps: see [Build details](#build-details). Full walkthrough in **[TU
 
 | Mode | What it is | Egress | Setup |
 | --- | --- | --- | --- |
-| **BYOK cloud** | Your own OpenAI / Anthropic / Google / xAI key. 9 models. | Aliased payload only | Settings (⌘,) → paste key → stored in OS keychain |
+| **BYOK cloud** | Your own OpenAI / Anthropic / Google / xAI / OpenRouter key — 14 built-in models incl. Llama, DeepSeek, Mistral, Qwen, Command. | Aliased payload only | Settings (⌘,) → paste key → stored in OS keychain |
 | **Ollama** 🆕 | Any model you've `ollama pull`-ed, running locally. | **Zero** (loopback) | Install [Ollama](https://ollama.com), `ollama pull llama3.2`, it auto-appears in the picker |
 | **Sentynyx Local** | Bundled on-device model (Qwen 2.5). | **Zero** | Download once from Settings → Models |
 
@@ -114,9 +114,9 @@ Everything persists to local SQLite with a SHA-256 hash-chained audit log. Quali
 
 ## What's real vs. roadmap
 
-**Real:** the Vendetta engine + re-hydration, 36 validated detection patterns with per-detection confidence scores, pack toggles + custom watchlist, streaming for 4 cloud providers (9 models), Ollama (any local model), bundled on-device model, a guided in-app tour, SQLite persistence, hash-chained audit log with a live privacy-posture dashboard, policy-violation block, consensus arena, telemetry-free operation.
+**Real:** the Vendetta engine + re-hydration, 38 validated detection patterns with per-detection confidence scores, pack toggles + custom watchlist, streaming for 5 cloud providers (14 built-in models — incl. Llama, DeepSeek, Mistral, Qwen, and Command via OpenRouter), Ollama (any local model), bundled on-device model, a guided in-app tour with CI-enforced E2E coverage, SQLite persistence, hash-chained audit log with a live privacy-posture dashboard, policy-violation block, consensus arena, telemetry-free operation.
 
-**Roadmap:** real agent tool-use (the Agent screen is an explicitly-labeled concept preview), knowledge-atlas ingest, custom visual policy rules, voice with redacted transcription, Windows/Linux signed binaries, OpenRouter provider. See [Issues](https://github.com/edenadiv/sentynyx-app/issues).
+**Roadmap:** real agent tool-use (the Agent screen is an explicitly-labeled concept preview), knowledge-atlas ingest, custom visual policy rules, voice with redacted transcription, Windows/Linux signed binaries. See [Issues](https://github.com/edenadiv/sentynyx-app/issues).
 
 ## Repo layout
 

@@ -5,11 +5,12 @@ import { setCustomTerms, setDisabledPacks, TOGGLEABLE_PACKS } from "../lib/vende
 import type { AllModelStatus } from "../lib/types";
 import { modelStatusKind } from "../lib/types";
 
-const PROVIDERS: { id: "openai"|"anthropic"|"google"|"xai"; name: string; hint: string }[] = [
-  { id:"openai",    name:"OpenAI",    hint:"sk-…" },
-  { id:"anthropic", name:"Anthropic", hint:"sk-ant-…" },
-  { id:"google",    name:"Google",    hint:"AIza… (Gemini)" },
-  { id:"xai",       name:"xAI",       hint:"xai-… (Grok)" },
+const PROVIDERS: { id: "openai"|"anthropic"|"google"|"xai"|"openrouter"; name: string; hint: string }[] = [
+  { id:"openai",     name:"OpenAI",     hint:"sk-…" },
+  { id:"anthropic",  name:"Anthropic",  hint:"sk-ant-…" },
+  { id:"google",     name:"Google",     hint:"AIza… (Gemini)" },
+  { id:"xai",        name:"xAI",        hint:"xai-… (Grok)" },
+  { id:"openrouter", name:"OpenRouter", hint:"sk-or-… (Llama · DeepSeek · Mistral · Qwen · Cohere)" },
 ];
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {

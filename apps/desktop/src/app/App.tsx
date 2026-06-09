@@ -397,7 +397,7 @@ export function App() {
       } else if (err.includes("429")) {
         friendly = `${model.provider} rate-limited this send. Wait ~30s and try again.`;
       } else if (err.includes("no provider for model")) {
-        friendly = `This model isn't wired up yet. Pick a GPT / Claude / Gemini / Grok model via ⌘O.`;
+        friendly = `This model isn't wired up yet. Pick any model from the picker (⌘O).`;
       } else if (err.toLowerCase().includes("local model not loaded")) {
         friendly = `The on-device Qwen model isn't installed yet. Opening Models panel — click Download.`;
         setModelPanelOpen(true);

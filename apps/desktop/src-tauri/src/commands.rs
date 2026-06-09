@@ -783,6 +783,12 @@ pub async fn validate_api_key(args: ValidateKeyArgs) -> Result<ValidateKeyResult
             "authorization",
             format!("Bearer {key}"),
         ),
+        "openrouter" => (
+            // /key returns the key's own metadata — 200 iff the key is live.
+            "https://openrouter.ai/api/v1/key".to_string(),
+            "authorization",
+            format!("Bearer {key}"),
+        ),
         other => return Ok(ValidateKeyResult {
             ok: false,
             reason: Some(format!("unknown provider: {other}")),
@@ -828,7 +834,7 @@ pub fn has_api_key(provider: String) -> bool { keys::has(&provider) }
 
 #[tauri::command]
 pub fn list_configured_providers() -> Vec<String> {
-    ["openai", "anthropic", "google", "xai"].iter()
+    ["openai", "anthropic", "google", "xai", "openrouter"].iter()
         .filter(|p| keys::has(p))
         .map(|p| p.to_string())
         .collect()
@@ -1106,7 +1112,7 @@ pub async fn delete_all_data(state: State<'_, AppState>) -> Result<(), String> {
         .ok_or_else(|| "couldn't resolve app data root".to_string())?;
 
     // Clear keychain entries for every provider we know about, best-effort.
-    for p in ["openai", "anthropic", "google", "xai"] {
+    for p in ["openai", "anthropic", "google", "xai", "openrouter"] {
         if let Ok(entry) = keyring::Entry::new("sentynyx", p) {
             let _ = entry.delete_credential();
         }

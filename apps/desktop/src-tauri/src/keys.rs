@@ -6,10 +6,11 @@ const SERVICE: &str = "sentynyx";
 
 fn env_key_for(provider: &str) -> Option<String> {
     let var = match provider {
-        "openai"    => "OPENAI_API_KEY",
-        "anthropic" => "ANTHROPIC_API_KEY",
-        "google"    => "GOOGLE_API_KEY",
-        "xai"       => "XAI_API_KEY",
+        "openai"     => "OPENAI_API_KEY",
+        "anthropic"  => "ANTHROPIC_API_KEY",
+        "google"     => "GOOGLE_API_KEY",
+        "xai"        => "XAI_API_KEY",
+        "openrouter" => "OPENROUTER_API_KEY",
         _ => return None,
     };
     std::env::var(var).ok().filter(|s| !s.is_empty())

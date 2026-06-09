@@ -1,7 +1,12 @@
-use crate::providers::{Provider, ChunkEvent, openai::OpenAI, anthropic::Anthropic, google::Google, xai::Xai};
+use crate::providers::{Provider, ChunkEvent, openai::OpenAI, anthropic::Anthropic, google::Google, xai::Xai, openrouter::OpenRouter};
 use tokio::sync::mpsc;
 
 pub fn provider_for(model_id: &str) -> Option<(&'static str, Box<dyn Provider>)> {
+    // OpenRouter ids are dynamic (`openrouter:vendor/model`), so they route by
+    // prefix rather than the exact-id table below.
+    if model_id.starts_with("openrouter:") {
+        return Some(("openrouter", Box::new(OpenRouter)));
+    }
     match model_id {
         "gpt-5" | "gpt-5-mini" | "o4" => Some(("openai", Box::new(OpenAI))),
         "claude-opus-4" | "claude-sonnet" | "claude-haiku" => Some(("anthropic", Box::new(Anthropic))),
