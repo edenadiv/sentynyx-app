@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Sentynyx — AI OS for Business</title>
+<title>Sentynyx — Open-Source Local Privacy Firewall for LLMs</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -127,29 +127,79 @@
   <script>
   // Vendetta Engine — realtime PII / sensitive info detector
   (function(){
+    // Demo subset of the real 41-pattern engine (apps/desktop/src-tauri/src/vendetta.rs).
+    // Checksum validators included so you can verify it isn't smoke: a Luhn-valid
+    // card blocks, a one-digit mutation passes through. Names/orgs are the NER
+    // layer's job in the desktop app — no hardcoded name lists here.
+    function luhn(ds){ let s=0; for(let i=0;i<ds.length;i++){ let v=ds[ds.length-1-i]; if(i%2===1){ v*=2; if(v>9)v-=9; } s+=v; } return ds.length>0 && s%10===0; }
+    function digitsOf(x){ return [...x].filter(c=>c>='0'&&c<='9').map(Number); }
+    function creditCard(raw){ const d=digitsOf(raw), n=d.length; if(n<13||n>19) return false;
+      const n2=d[0]*10+d[1], n4=((n2*10+d[2])*10)+d[3];
+      const brand=(d[0]===4&&[13,16,19].includes(n))||(n2>=51&&n2<=55&&n===16)||(n4>=2221&&n4<=2720&&n===16)||((n2===34||n2===37)&&n===15)||(n4===6011&&n===16)||(n2===65&&n===16);
+      return brand && luhn(d); }
+    function iban(raw){ const s=raw.replace(/\s/g,''); if(s.length<15||s.length>34) return false;
+      if(!/^[A-Z]{2}\d{2}/.test(s)) return false;
+      const r=s.slice(4)+s.slice(0,4); let acc=0;
+      for(const ch of r){ const v=ch>='0'&&ch<='9'?+ch:(ch>='A'&&ch<='Z'?ch.charCodeAt(0)-55:NaN);
+        if(Number.isNaN(v)) return false; acc = v<10 ? (acc*10+v)%97 : (acc*100+v)%97; }
+      return acc===1; }
+    function vin(raw){ if(raw.length!==17) return false;
+      const T={A:1,J:1,B:2,K:2,S:2,C:3,L:3,T:3,D:4,M:4,U:4,E:5,N:5,V:5,F:6,W:6,G:7,P:7,X:7,H:8,Y:8,R:9,Z:9};
+      const W=[8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2]; let s=0;
+      for(let i=0;i<17;i++){ const c=raw[i]; const v=c>='0'&&c<='9'?+c:T[c]; if(v===undefined) return false; s+=v*W[i]; }
+      const r=s%11; return raw[8]===(r===10?'X':String(r)); }
+    function entropy(x){ const m=new Map(); for(const c of x) m.set(c,(m.get(c)||0)+1);
+      const n=[...x].length; let h=0; for(const c of m.values()){ const p=c/n; h-=p*Math.log2(p); } return h; }
+    function credentialValue(raw){ if(raw.length<8) return false;
+      if('$%<{['.includes(raw[0])||raw.includes('${')||raw.includes('{{')) return false;
+      const l=raw.toLowerCase();
+      if(['true','false','null','none','nil','undefined'].includes(l)) return false;
+      if(['password','passwd','changeme','example','sample','dummy','placeholder','redacted','secret','your-','your_','xxxx','****','qwerty'].some(p=>l.includes(p))) return false;
+      if(!/[\d\W_]/.test(raw)) return false;
+      return entropy(raw)>=3.0; }
+    function validate(kind, raw){
+      if(kind==='CREDITCARD') return creditCard(raw);
+      if(kind==='IBAN') return iban(raw);
+      if(kind==='VIN') return vin(raw);
+      if(kind==='CREDENTIAL') return credentialValue(raw);
+      if(kind==='IP') return raw.split('.').every(o=>+o<=255);
+      return true;
+    }
     const PATTERNS = [
+      { kind: 'CREDITCARD', re: /\b\d(?:[ -]?\d){12,18}\b/g },
+      { kind: 'IBAN',    re: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/g },
+      { kind: 'CREDENTIAL', re: /\b(?:pass(?:word|wd|phrase)|pwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|auth[_-]?token|credentials?)\b["']?\s*(?:=>|[:=])\s*["']?([^\s"'`,;]{8,})/gi, cap: true },
+      { kind: 'VIN',     re: /\b[A-HJ-NPR-Z0-9]{17}\b/g },
+      { kind: 'JWT',     re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
       { kind: 'EMAIL',   re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
       { kind: 'PHONE',   re: /\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/g },
       { kind: 'SSN',     re: /\b\d{3}-\d{2}-\d{4}\b/g },
       { kind: 'IP',      re: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
-      { kind: 'APIKEY',  re: /\b(?:sk-|pk_|AKIA|ghp_|xox[baprs]-)[A-Za-z0-9_\-]{10,}\b/g },
+      { kind: 'APIKEY',  re: /\b(?:sk-|sk_live_|sk_test_|pk_|rk_live_|AKIA|ASIA|ghp_|gho_|github_pat_|glpat-|xox[baprs]-)[A-Za-z0-9_\-]{10,}\b/g },
       { kind: 'URL',     re: /\bhttps?:\/\/[^\s)]+/g },
       { kind: 'ADDRESS', re: /\b\d{1,5}\s+[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3}\s+(?:Street|St|Avenue|Ave|Road|Rd|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Way)\b/g },
       { kind: 'MONEY',   re: /\$\s?\d{1,3}(?:,\d{3})+(?:\.\d+)?|\$\s?\d{4,}(?:\.\d+)?/g },
-      { kind: 'NAME',    re: /\b(?:Sarah Chen|Marcus Rodriguez|Elena Volkov|James Patterson|Priya Shah|Nikolai Ivanov|David Kim|Anna Müller)\b/g },
-      { kind: 'COMPANY', re: /\b(?:Project Helios|Project Orion|Northwind Capital|Halcyon Labs|Blackbird Initiative|Atlas Holdings|Meridian Pharma)\b/g },
       { kind: 'EMPID',   re: /\bEMP-\d{4,6}\b/g },
     ];
     // Critical classes that trigger a policy violation (hard block)
     const CRITICAL = {
-      SSN: { name:'SSN in outbound payload', class:'PII_LEVEL_3',
-             desc:'Social Security Numbers are prohibited from egress to any third-party model endpoint under HALCYON-SEC-08. Tokenize with PII_LEVEL_3 vault or use Sentynyx Local.' },
+      SSN: { name:'Social Security number in outbound payload', class:'CRITICAL_IDENTITY',
+             desc:'Sentynyx never sends SSNs to a third-party model endpoint. Remove it, or switch to a local model — local sends never leave this machine.' },
+      APIKEY: { name:'Live API credential in outbound payload', class:'CRITICAL_SECRET',
+             desc:'Exposed API keys grant immediate access to provider accounts and billing. Rotate the key at its issuer and keep secrets out of prompts — or switch to a local model.' },
+      CREDITCARD: { name:'Payment card number in outbound payload', class:'CRITICAL_PAYMENT',
+             desc:'This is a checksum-valid card number. Card data must never reach a third-party model endpoint. Remove it, or switch to a local model.' },
+      IBAN: { name:'Bank account (IBAN) in outbound payload', class:'CRITICAL_PAYMENT',
+             desc:'International bank account numbers are blocked from egress. Remove it, or switch to a local model.' },
+      CREDENTIAL: { name:'Password or secret assignment in outbound payload', class:'CRITICAL_SECRET',
+             desc:'This looks like a live credential (a password/secret/token assignment with a high-entropy value). Remove it or replace the value with a placeholder — or switch to a local model.' },
     };
     window.VendettaCritical = CRITICAL;
     const LABELS = {
       EMAIL:'email', PHONE:'phone', SSN:'ssn', IP:'ip',
       APIKEY:'api-key', URL:'url', ADDRESS:'address', MONEY:'amount',
-      NAME:'person', COMPANY:'entity', EMPID:'employee-id'
+      NAME:'person', COMPANY:'entity', EMPID:'employee-id',
+      CREDITCARD:'card', IBAN:'iban', JWT:'jwt', VIN:'vin', CREDENTIAL:'credential'
     };
     function detect(text){
       const hits = [];
@@ -219,7 +269,7 @@ function BootSequence({ onDone }){
             <span key={i} style={{...bs.letter, animationDelay:(i*0.05)+'s'}}>{c}</span>
           ))}
         </div>
-        <div style={bs.tagline}>THE AI OPERATING SYSTEM FOR BUSINESS</div>
+        <div style={bs.tagline}>THE LOCAL PRIVACY PERIMETER FOR LLMs</div>
         <div style={bs.console}>
           {lines.slice(0, step).map((l,i)=>(
             <div key={i} style={bs.line}>
@@ -312,7 +362,7 @@ function PolicyViolation({ rule, onDismiss }){
         </div>
         <div style={pv.foot}>
           <div style={{fontSize:10, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", letterSpacing:1}}>
-            Event logged · security@halcyonlabs notified · 0x9a4f...2c1e
+            Event logged to the local audit chain · 0x9a4f...2c1e
           </div>
           <button onClick={onDismiss} style={pv.btn}>ACKNOWLEDGE</button>
         </div>
@@ -415,8 +465,8 @@ function ThreatRadar(){
         </svg>
       </div>
       <div style={tr.stats}>
-        <div><span style={{color:'var(--neon)'}}>1,284</span> redactions/24h</div>
-        <div><span style={{color:'var(--neon)'}}>98.2%</span> egress clean</div>
+        <div><span style={{color:'var(--neon)'}}>100%</span> scanned pre-egress</div>
+        <div><span style={{color:'var(--neon)'}}>0</span> bytes leave this tab</div>
       </div>
     </div>
   );
@@ -634,21 +684,23 @@ const ca = {
 // ——————————————————————————————————————————————————————————————
 // COMPLIANCE DASHBOARD
 function ComplianceDashboard({ onClose }){
+  // Privacy posture, not certification badges — Sentynyx is a tool you run,
+  // not an audited service, and it claims nothing it doesn't hold.
   const tiles = [
-    { n:'SOC 2 TYPE II', s:'COMPLIANT', v:99.1, c:'var(--good)' },
-    { n:'GDPR', s:'COMPLIANT', v:98.4, c:'var(--good)' },
-    { n:'HIPAA', s:'COMPLIANT', v:97.9, c:'var(--good)' },
-    { n:'ISO 27001', s:'IN REVIEW', v:92.0, c:'var(--neon)' },
-    { n:'CCPA', s:'COMPLIANT', v:99.6, c:'var(--good)' },
-    { n:'EU AI ACT', s:'MONITORED', v:94.3, c:'var(--neon)' },
+    { n:'REGEX ENGINE', s:'41 PATTERNS', v:100, c:'var(--good)' },
+    { n:'DETECTION PACKS', s:'7 ACTIVE', v:100, c:'var(--good)' },
+    { n:'CHECKSUM VALIDATORS', s:'14 LIVE', v:100, c:'var(--good)' },
+    { n:'EGRESS BLOCKS', s:'7 CLASSES', v:100, c:'var(--neon)' },
+    { n:'AUDIT CHAIN', s:'LOCAL · SIGNED', v:100, c:'var(--good)' },
+    { n:'TELEMETRY', s:'NONE', v:100, c:'var(--neon)' },
   ];
   const teams = [
-    { n:'Engineering',  r:312, p:2, c:4823 },
-    { n:'Legal',        r:847, p:0, c:1220 },
-    { n:'Finance',      r:1124, p:1, c:3411 },
-    { n:'HR',           r:568, p:0, c:982 },
-    { n:'Executive',    r:102, p:0, c:1840 },
-    { n:'Sales',        r:429, p:3, c:2167 },
+    { n:'Payment & banking', r:5, p:2, c:3 },
+    { n:'Secrets',           r:7, p:5, c:2 },
+    { n:'Identity docs',     r:4, p:0, c:2 },
+    { n:'National IDs',      r:6, p:0, c:5 },
+    { n:'Medical',           r:5, p:0, c:3 },
+    { n:'Legal & network',   r:6, p:0, c:3 },
   ];
 
   return (
@@ -663,9 +715,9 @@ function ComplianceDashboard({ onClose }){
           </div>
           <div style={{display:'flex', alignItems:'center', gap:14}}>
             <div style={cd.score}>
-              <div style={{fontSize:10, letterSpacing:2, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>COMPOSITE</div>
-              <div style={{fontFamily:"'Instrument Serif',serif", fontSize:40, color:'var(--neon)', lineHeight:1}}>98.2%</div>
-              <div style={{fontSize:10, color:'var(--good)', fontFamily:"'JetBrains Mono',monospace"}}>▲ 0.4 · 7d</div>
+              <div style={{fontSize:10, letterSpacing:2, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace"}}>EGRESS</div>
+              <div style={{fontFamily:"'Instrument Serif',serif", fontSize:40, color:'var(--neon)', lineHeight:1}}>LOCAL</div>
+              <div style={{fontSize:10, color:'var(--good)', fontFamily:"'JetBrains Mono',monospace"}}>aliased before send</div>
             </div>
             <button onClick={onClose} style={cd.close}>×</button>
           </div>
@@ -701,11 +753,11 @@ function ComplianceDashboard({ onClose }){
                 </div>
               ))}
               <div style={{display:'flex', gap:0, marginTop:6, fontSize:9, color:'var(--ink-3)', fontFamily:"'JetBrains Mono',monospace", letterSpacing:1}}>
-                <div style={{width:110}}>TEAM</div>
-                <div style={{flex:1}}>VOLUME</div>
-                <div style={{width:60, textAlign:'right'}}>REDACTS</div>
-                <div style={{width:40, textAlign:'right'}}>VIOLATIONS</div>
-                <div style={{width:60, textAlign:'right'}}>COST</div>
+                <div style={{width:110}}>PACK</div>
+                <div style={{flex:1}}>COVERAGE</div>
+                <div style={{width:60, textAlign:'right'}}>PATTERNS</div>
+                <div style={{width:40, textAlign:'right'}}>BLOCKING</div>
+                <div style={{width:60, textAlign:'right'}}>CHECKSUMS</div>
               </div>
             </div>
           </div>
@@ -735,11 +787,11 @@ function ComplianceDashboard({ onClose }){
         </div>
 
         <div style={cd.bottomRow}>
-          <Metric label="Outbound payloads scanned" value="4.1M" sub="last 30d"/>
-          <Metric label="Sensitive tokens aliased" value="281,420" sub="last 30d" accent/>
-          <Metric label="Policy violations blocked" value="47" sub="↓ 68% vs prior month"/>
-          <Metric label="Mean egress latency" value="712ms" sub="p99 · 1.2s"/>
-          <Metric label="Cost saved vs. vendor" value="$1.24M" sub="smart routing" accent/>
+          <Metric label="Detection patterns" value="41" sub="7 packs · vendetta.rs" accent/>
+          <Metric label="Checksum validators" value="14" sub="Luhn · mod-97 · Verhoeff · ISO 3779"/>
+          <Metric label="Detection latency" value="<10ms" sub="p99 17ms on the eval corpus"/>
+          <Metric label="Eval fixtures" value="193" sub="precision gate ≥0.80, CI-enforced"/>
+          <Metric label="Network calls from this demo" value="0" sub="everything runs in your tab" accent/>
         </div>
       </div>
     </div>
@@ -1013,7 +1065,7 @@ function Sidebar({ activeId, onSelect, onNew }){
         <SentynyxMark size={30}/>
         <div>
           <div style={sx.brandName}>SENTYNYX</div>
-          <div style={sx.brandSub}>AI · OS · v1.4</div>
+          <div style={sx.brandSub}>PRIVACY FIREWALL · v0.4 · AGPL</div>
         </div>
       </div>
 
@@ -1049,7 +1101,7 @@ function Sidebar({ activeId, onSelect, onNew }){
             <span style={sx.live}><span style={sx.liveDot}/>LIVE</span>
           </div>
           <div style={{fontSize:12, color:'var(--ink-1)', lineHeight:1.5}}>
-            Scanning all outbound traffic. <span style={{color:'var(--neon)'}}>1,284</span> redactions this week.
+            Scanning everything you type, before it leaves. <span style={{color:'var(--neon)'}}>41</span> patterns · 7 packs · checksum-validated.
           </div>
           <div style={sx.meter}>
             <div style={{...sx.meterBar, width:'72%'}}/>
@@ -1059,10 +1111,10 @@ function Sidebar({ activeId, onSelect, onNew }){
           </div>
         </div>
         <div style={sx.userRow}>
-          <div style={sx.avatar}>KA</div>
+          <div style={sx.avatar}>YO</div>
           <div style={{flex:1, minWidth:0}}>
-            <div style={{fontSize:12, fontWeight:500}}>Kai Alvarez</div>
-            <div style={{fontSize:10, color:'var(--ink-3)'}}>Halcyon · Admin</div>
+            <div style={{fontSize:12, fontWeight:500}}>You</div>
+            <div style={{fontSize:10, color:'var(--ink-3)'}}>Personal · Local</div>
           </div>
           <button style={sx.iconBtn} title="Tweaks" onClick={()=>window.postMessage({type:'__activate_edit_mode'}, '*')}>⚙</button>
         </div>
@@ -1094,7 +1146,7 @@ function TopBar({ model, setModel, onOpenVendetta, onOpenOrbital, onOpenCmd, onO
         <div style={{display:'flex',alignItems:'center',gap:8,fontSize:11,letterSpacing:2,color:'var(--ink-2)'}}>
           <span>WORKSPACE</span>
           <span style={sx.chevron}>›</span>
-          <span style={{color:'var(--ink-0)'}}>Halcyon Labs</span>
+          <span style={{color:'var(--ink-0)'}}>Personal</span>
           <span style={sx.chevron}>›</span>
           <span style={{color:'var(--neon)'}}>Mission Control</span>
         </div>
@@ -1619,10 +1671,10 @@ function EmptyState(){
         </div>
 
         <div style={cx.emptyStats}>
-          <Stat label="Providers online" value="9"/>
-          <Stat label="Models routable" value="14"/>
-          <Stat label="Redactions / 24h" value="4,108" accent/>
-          <Stat label="Mean latency" value="712ms"/>
+          <Stat label="Cloud + local providers" value="6"/>
+          <Stat label="Models routable" value="15+"/>
+          <Stat label="Detection patterns" value="41" accent/>
+          <Stat label="Detect latency" value="<10ms"/>
         </div>
       </div>
     </div>
@@ -1680,7 +1732,7 @@ Response returned structural — values re-hydrated locally before display.`
         <div style={{fontSize:11, color:'var(--ink-2)'}}>{model.name}</div>
         <div style={cx.msgMeta}>
           <span style={{fontFamily:"'JetBrains Mono',monospace", fontSize:10, color:'var(--ink-3)'}}>
-            via Vendetta tunnel · 712ms · re-hydrated
+            via Vendetta tunnel · re-hydrated
           </span>
           {m.spans && m.spans.length > 0 && (
             <div style={cx.dualToggle}>
@@ -2331,7 +2383,7 @@ function App(){
   const [model, setModel] = useStateA(MODELS[TWEAKS_DEFAULTS.defaultModelIdx || 3]);
   const [activeConvo, setActiveConvo] = useStateA('c1');
   const [messages, setMessages] = useStateA([]);
-  const [draft, setDraft] = useStateA(`Draft a memo to the Project Helios exec team summarizing Q4 results for Northwind Capital. Include projected revenue of $42,500,000 and cc Sarah Chen at sarah.chen@halcyonlabs.com. Server SSH access via 192.168.24.17 — API key sk-halc-9f8d7c6b5a4e3d2c1 must be rotated. Employee EMP-47291 will lead follow-up.`);
+  const [draft, setDraft] = useStateA(`Draft a memo summarizing Q4 results. Projected revenue $42,500,000 — cc dana.reyes@example.com or call (415) 555-0142. Fleet truck VIN 1HGCM82633A004352 needs re-registration; server at 192.168.24.17. The deploy key sk_test_4eC39HqLyjWDarjt must be rotated. Employee EMP-47291 will lead follow-up.`);
   const [spans, setSpans] = useStateA([]);
   const [vendettaOpen, setVendettaOpen] = useStateA(true);
   const [aliasMode, setAliasMode] = useStateA('alias');
