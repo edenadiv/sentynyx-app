@@ -14,6 +14,10 @@ Bring your own API keys (OpenAI · Anthropic · Google · xAI), run models fully
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE) ![Platform: macOS](https://img.shields.io/badge/macOS-supported-black) ![Windows | Linux: from source](https://img.shields.io/badge/Windows%20%7C%20Linux-from%20source-lightgrey)
 
+<!-- demo GIF: record the guided tour (steps 1–5: detect → panel → transmit →
+     "Model saw") as a ~15s loop, save to docs/assets/demo.gif, then swap in:
+     <img src="docs/assets/demo.gif" width="720" alt="Sentynyx aliasing PII live before send" /> -->
+
 </div>
 
 ---
@@ -57,7 +61,7 @@ pnpm tauri dev                # dev window with hot reload
 pnpm tauri build              # → .dmg / .exe / .AppImage
 ```
 
-Linux build deps: see [Build details](#build-details). Full walkthrough in **[TUTORIAL.md](TUTORIAL.md)**.
+Linux build deps: see [Build details](#build-details). Full walkthrough in **[TUTORIAL.md](TUTORIAL.md)** — and the app itself opens with a **2-minute guided tour** (re-run anytime: ⌘K → "Take the guided tour").
 
 ## Three ways to run a model
 
@@ -81,23 +85,36 @@ open Sentynyx.html        # zero-build, self-contained interactive demo
 
 or visit the hosted demo at **https://edenadiv.github.io/sentynyx-app/**. Type a prompt with an email or `123-45-6789` and watch the Vendetta panel light up.
 
-## How it works
+## What it detects
 
-Three detection layers run on every send and merge into one alias map:
+Four layers run on every send and merge into one alias map:
 
-1. **Regex** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — emails, phones, SSNs, IPs, API keys, URLs, addresses, money. Fast, deterministic.
-2. **Semantic NER** ([`detect/ner.rs`](apps/desktop/src-tauri/src/detect/ner.rs)) — GLiNER-small (ONNX) for arbitrary names, orgs, codenames, locations, employee IDs that regex can't enumerate.
-3. **Paranoid LLM** ([`detect/llm.rs`](apps/desktop/src-tauri/src/detect/llm.rs)) — a small local model catching semantic sensitivity ("layoffs", "legal hold") with no token signature.
+1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 27 patterns across six packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
 
-Regex wins on overlap; non-overlapping NER spans are kept ([`merge_spans`](apps/desktop/src-tauri/src/detect/mod.rs)). Aliases are stable per conversation and use `⟦…⟧` math brackets so the model doesn't mistake them for template variables. Streaming responses are re-hydrated across token boundaries. SSNs and API keys trigger **BLOCK_EGRESS** — the request is never made.
+| Pack | Classes | Validation |
+| --- | --- | --- |
+| Core PII | email, phone, SSN†, IPv4/IPv6, URL, address, money, employee ID | octet ranges, IPv6 parse |
+| Payment / banking | credit card†, IBAN†, US routing + account, SWIFT/BIC, EIN | Luhn + brand lengths, mod-97, ABA checksum |
+| Secrets | API keys† (OpenAI/Anthropic/Google/AWS/GitHub/GitLab/Stripe/Slack…), JWTs, private-key blocks† | distinctive prefixes |
+| Identity | date of birth, passport, driver's license | context anchors + date plausibility |
+| Medical | MRN, NPI, DEA, insurance member ID | NPI + DEA checksums |
+| Legal / crypto | case & docket numbers, BTC/ETH wallets | Base58Check |
 
-Everything persists to local SQLite with a SHA-256 hash-chained audit log. Reproducible benchmark: regex+NER **F1 0.853 vs Presidio 0.642** on the 106-prompt corpus ([`eval/`](apps/desktop/src-tauri/eval)).
+† = **blocks egress entirely** — the request is never made.
+
+2. **Custom watchlist** (Settings) — your own codenames, client names, and hostnames, aliased as `⟦custom_NN⟧`.
+3. **Semantic NER** ([`detect/ner.rs`](apps/desktop/src-tauri/src/detect/ner.rs)) — GLiNER-small (ONNX) for arbitrary names, orgs, codenames, locations that no pattern can enumerate.
+4. **Paranoid LLM** ([`detect/llm.rs`](apps/desktop/src-tauri/src/detect/llm.rs)) — a small local model catching semantic sensitivity ("layoffs", "legal hold") with no token signature.
+
+Built-ins win on overlap, then watchlist, then NER ([`merge_spans`](apps/desktop/src-tauri/src/detect/mod.rs)). Aliases are stable per conversation and use `⟦…⟧` math brackets so the model doesn't mistake them for template variables. Streaming responses are re-hydrated across token boundaries.
+
+Everything persists to local SQLite with a SHA-256 hash-chained audit log. Quality is CI-gated by a [165-fixture eval corpus](apps/desktop/src-tauri/eval) with negative cases per class: **precision 0.898 · recall 0.851 · p99 17 ms · zero misses on blocking classes** (and regex+NER **F1 0.853 vs Presidio 0.642** on the published benchmark).
 
 ## What's real vs. roadmap
 
-**Real:** Vendetta engine + re-hydration, streaming for 4 cloud providers (9 models), Ollama (any local model), bundled on-device model, SQLite persistence, hash-chained audit log, policy-violation block, consensus arena, compliance cockpit, local-only telemetry-free operation.
+**Real:** the Vendetta engine + re-hydration, 27 validated detection patterns + custom watchlist, streaming for 4 cloud providers (9 models), Ollama (any local model), bundled on-device model, a guided in-app tour, SQLite persistence, hash-chained audit log with a live privacy-posture dashboard, policy-violation block, consensus arena, telemetry-free operation.
 
-**Roadmap:** real agent tool-use, knowledge-atlas ingest, custom visual policy rules, voice with redacted transcription, Windows/Linux signed binaries, OpenRouter provider. See [Issues](https://github.com/edenadiv/sentynyx-app/issues).
+**Roadmap:** real agent tool-use (the Agent screen is an explicitly-labeled concept preview), knowledge-atlas ingest, custom visual policy rules, voice with redacted transcription, Windows/Linux signed binaries, OpenRouter provider. See [Issues](https://github.com/edenadiv/sentynyx-app/issues).
 
 ## Repo layout
 

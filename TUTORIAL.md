@@ -2,6 +2,8 @@
 
 This walks you through installing Sentynyx, sending your first prompt through the Vendetta privacy perimeter, and using all three model modes (cloud BYOK, local Ollama, on-device). ~10 minutes.
 
+> **Prefer learning inside the app?** Sentynyx ships a **walkable guided tour** that spotlights the real UI and advances as you actually do things — it's offered on first launch and re-runnable anytime via `⌘K` → *"Take the guided tour"*. This document covers the same ground in text form, plus setup.
+
 > **No install, just looking?** Open `Sentynyx.html` in any browser for a simulated interactive demo, or jump to [Part 5](#5-the-interface-at-a-glance) to learn the UI first.
 
 ---

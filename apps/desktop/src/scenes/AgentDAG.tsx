@@ -39,7 +39,9 @@ export function AgentDAG({ onClose }: { onClose: () => void }) {
       <div style={ag.stage}>
         <div style={ag.header}>
           <div>
-            <div style={{ fontSize:10, letterSpacing:4, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace" }}>AGENT MODE</div>
+            <div style={{ fontSize:10, letterSpacing:4, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace" }}>
+              AGENT MODE · <span style={{ color:"var(--neon)" }}>CONCEPT PREVIEW</span>
+            </div>
             <div style={{ fontFamily:"'Instrument Serif',serif", fontSize:32, marginTop:4 }}>
               Tool-chain <em style={{ color:"var(--neon)" }}>execution</em>
             </div>
@@ -99,7 +101,7 @@ export function AgentDAG({ onClose }: { onClose: () => void }) {
             <Legend c="#fff" t="I/O" />
           </div>
           <div style={{ fontSize:10, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
-            {step >= edges.length ? "✓ CHAIN COMPLETE · 8 Vendetta hops · 3 tool calls · 1.4s" : `executing step ${step}/${edges.length}`}
+            {step >= edges.length ? "PREVIEW · concept animation — real tool execution is on the roadmap" : `animating step ${step}/${edges.length}`}
           </div>
         </div>
       </div>

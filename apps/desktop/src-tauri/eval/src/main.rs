@@ -143,8 +143,25 @@ async fn main() {
 
         let row = score(&merged, &p.expected);
 
+        // EVAL_DEBUG=1 prints every false positive / false negative with its
+        // prompt id — the first thing you want when the precision gate trips.
+        if std::env::var("EVAL_DEBUG").is_ok() {
+            let mut matched = vec![false; p.expected.len()];
+            for a in &merged {
+                let hit = p.expected.iter().enumerate().position(|(i, e)|
+                    !matched[i] && kinds_equivalent(a.kind.as_str(), &e.kind) && a.raw == e.raw);
+                if let Some(i) = hit { matched[i] = true; }
+                else { eprintln!("FP {} {} {:?}", p.id, a.kind.as_str(), a.raw); }
+            }
+            for (i, e) in p.expected.iter().enumerate() {
+                if !matched[i] { eprintln!("FN {} {} {:?}", p.id, e.kind, e.raw); }
+            }
+        }
+
         for exp in &p.expected {
-            if matches!(exp.kind.as_str(), "SSN" | "APIKEY") {
+            // The zero-miss set mirrors vendetta::is_critical — every kind that
+            // hard-blocks egress must never be missed by the detector.
+            if matches!(exp.kind.as_str(), "SSN" | "APIKEY" | "CREDITCARD" | "IBAN" | "PRIVATE_KEY") {
                 let found = merged.iter().any(|m|
                     m.kind.as_str() == exp.kind && m.raw == exp.raw);
                 if !found {
@@ -215,12 +232,23 @@ async fn main() {
     unsafe { libc::_exit(code) }
 }
 
+/// ORG_NER vs CODENAME_NER is a taxonomy distinction GLiNER frequently blurs
+/// ("Project Orion" → organization). Both kinds alias the span identically, so
+/// the privacy outcome is the same — the eval measures *protection*, not
+/// label taxonomy. Person/location confusion is NOT excused: misreading what
+/// category an entity is can matter for policy, so those stay strict.
+fn kinds_equivalent(a: &str, b: &str) -> bool {
+    a == b
+        || (matches!(a, "ORG_NER" | "CODENAME_NER")
+            && matches!(b, "ORG_NER" | "CODENAME_NER"))
+}
+
 fn score(actual: &[Span], expected: &[ExpectedSpan]) -> RowMetrics {
     let mut tp = 0; let mut fp = 0; let mut fn_ = 0;
     let mut matched: Vec<bool> = vec![false; expected.len()];
     for a in actual {
         let hit = expected.iter().enumerate().position(|(i, e)|
-            !matched[i] && a.kind.as_str() == e.kind && a.raw == e.raw);
+            !matched[i] && kinds_equivalent(a.kind.as_str(), &e.kind) && a.raw == e.raw);
         if let Some(i) = hit { matched[i] = true; tp += 1; }
         else { fp += 1; }
     }

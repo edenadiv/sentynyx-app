@@ -11,13 +11,15 @@ interface Props {
   llmStatus: ModelStatus | null;
   onOpenSettings: () => void;
   onOpenModels: () => void;
+  /// Launches the guided tour (the walkable tutorial).
+  onStartTour?: () => void;
 }
 
 /// Shown in the empty-state above the Transcript until the user sends their
 /// first message. Three live-status rows — no lies. Dismisses automatically
 /// once `messages.length > 0` (the EmptyState stops rendering).
 export function OnboardingCard({
-  model, configuredProviders, llmStatus, onOpenSettings, onOpenModels,
+  model, configuredProviders, llmStatus, onOpenSettings, onOpenModels, onStartTour,
 }: Props) {
   const hasKey = configuredProviders > 0;
   const localReady = llmStatus !== null && modelStatusKind(llmStatus) === "ready";
@@ -77,11 +79,24 @@ export function OnboardingCard({
         />
       </div>
 
-      <div style={{ ...cx.footer, ...(canSend ? {} : cx.footerWarn) }}>
-        {canSend
-          ? <>Ready to transmit. A demo prompt is pre-filled below — press <kbd style={cx.kbd}>⌘↵</kbd> to send.</>
-          : <>Add a provider key or install Sentynyx Local before sending.</>
-        }
+      <div style={{ ...cx.footer, ...(canSend ? {} : cx.footerWarn), display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ flex: 1 }}>
+          {canSend
+            ? <>Ready to transmit — just start typing, or press <kbd style={cx.kbd}>⌘↵</kbd> to send.</>
+            : <>Add a provider key or install Sentynyx Local before sending.</>
+          }
+        </span>
+        {onStartTour && (
+          <button
+            onClick={onStartTour}
+            style={{
+              background: "transparent", border: "1px solid rgba(242,255,43,0.4)",
+              color: "var(--neon)", borderRadius: 6, padding: "4px 10px",
+              fontSize: 10, letterSpacing: 1, cursor: "pointer", whiteSpace: "nowrap",
+              fontFamily: "'JetBrains Mono', monospace",
+            }}
+          >TAKE THE 2-MIN TOUR →</button>
+        )}
       </div>
     </div>
   );

@@ -4,15 +4,26 @@ import { Highlighted } from "./Composer";
 import { PROVIDER_GLYPHS, SUGGESTIONS } from "../lib/models";
 import type { Message, Model } from "../lib/types";
 
-interface TProps { messages: Message[]; model: Model }
+export interface TranscriptStats {
+  /// Providers with working credentials (BYOK keys + a reachable Ollama).
+  providers: number;
+  /// Models currently routable (built-ins + discovered Ollama models).
+  models: number;
+  /// Real count from the local audit log.
+  redactions24h: number;
+  /// Mean time-to-first-token across this session's sends; null until data.
+  meanTtftMs: number | null;
+}
 
-export function Transcript({ messages, model }: TProps) {
+interface TProps { messages: Message[]; model: Model; stats?: TranscriptStats }
+
+export function Transcript({ messages, model, stats }: TProps) {
   const scroller = useRef<HTMLDivElement>(null);
   useEffect(() => { if (scroller.current) scroller.current.scrollTop = scroller.current.scrollHeight; }, [messages]);
 
   return (
     <div ref={scroller} style={cx.transcript}>
-      {messages.length === 0 && <EmptyState />}
+      {messages.length === 0 && <EmptyState stats={stats} />}
       {messages.map((m, i) => (
         <MessageBlock key={m.id ?? i} m={m} model={model} glyph={PROVIDER_GLYPHS[model.provider]} />
       ))}
@@ -20,7 +31,7 @@ export function Transcript({ messages, model }: TProps) {
   );
 }
 
-function EmptyState() {
+function EmptyState({ stats }: { stats?: TranscriptStats }) {
   return (
     <div style={cx.empty}>
       <div style={cx.emptyHalo} />
@@ -44,10 +55,10 @@ function EmptyState() {
           ))}
         </div>
         <div style={cx.emptyStats}>
-          <Stat label="Providers online" value="9" />
-          <Stat label="Models routable" value="14" />
-          <Stat label="Redactions / 24h" value="4,108" accent />
-          <Stat label="Mean latency" value="712ms" />
+          <Stat label="Providers ready" value={stats ? String(stats.providers) : "—"} />
+          <Stat label="Models routable" value={stats ? String(stats.models) : "—"} />
+          <Stat label="Redactions / 24h" value={stats ? stats.redactions24h.toLocaleString() : "—"} accent />
+          <Stat label="Mean TTFT" value={stats?.meanTtftMs != null ? `${stats.meanTtftMs}ms` : "—"} />
         </div>
       </div>
     </div>
@@ -70,7 +81,7 @@ function MessageBlock({ m, model, glyph }: { m: Message; model: Model; glyph: st
     return (
       <div style={cx.msgUser}>
         <div style={cx.msgUserHead}>
-          <div style={cx.avatarU}>KA</div>
+          <div style={cx.avatarU}>⛨</div>
           <div style={{ fontSize:11, color:"var(--ink-2)" }}>You</div>
           <div style={cx.msgMeta}>
             {m.spans && m.spans.length > 0 && (
@@ -102,7 +113,7 @@ function MessageBlock({ m, model, glyph }: { m: Message; model: Model; glyph: st
           {m.aliasedPrompt && (
             <div style={cx.dualToggle}>
               <button onClick={() => setView("rehydrated")} style={{ ...cx.dualTab, ...(view === "rehydrated" ? cx.dualTabOn : {}) }}>You see</button>
-              <button onClick={() => setView("aliased")} style={{ ...cx.dualTab, ...(view === "aliased" ? cx.dualTabOn : {}) }}>Model saw</button>
+              <button data-tour="modelsaw" onClick={() => setView("aliased")} style={{ ...cx.dualTab, ...(view === "aliased" ? cx.dualTabOn : {}) }}>Model saw</button>
             </div>
           )}
         </div>

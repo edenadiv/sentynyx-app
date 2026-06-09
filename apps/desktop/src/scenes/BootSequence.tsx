@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 
+// Cosmetic boot theatre, but every line states something true about the app.
 const lines = [
-  "BOOTING SENTYNYX KERNEL...",
-  "HANDSHAKE · OPENAI · ANTHROPIC · GOOGLE · xAI · META",
-  "INITIALIZING VENDETTA PERIMETER",
-  "LOADING POLICY ENGINE · 147 RULES",
-  "MOUNTING KNOWLEDGE ATLAS · 2.4TB",
-  "TELEMETRY ONLINE · CRYPTO SEAL VERIFIED",
-  "FLEET LINK ESTABLISHED",
+  "BOOTING SENTYNYX...",
+  "VENDETTA PERIMETER · REGEX ENGINE ARMED",
+  "DETECTION PACKS · PAYMENT · SECRETS · IDENTITY · MEDICAL · LEGAL",
+  "LOCAL STORE · SQLITE + HASH-CHAINED AUDIT",
+  "KEYCHAIN LINK · OS-NATIVE SECRET STORAGE",
+  "SEMANTIC LAYERS · NER + PARANOID ON DEMAND",
+  "ZERO RAW EGRESS · ALIAS BEFORE TRANSMIT",
 ];
 
 export function BootSequence({ onDone }: { onDone: () => void }) {
@@ -29,7 +30,7 @@ export function BootSequence({ onDone }: { onDone: () => void }) {
             <span key={i} style={{ ...bs.letter, animationDelay: i * 0.05 + "s" }}>{c}</span>
           ))}
         </div>
-        <div style={bs.tagline}>THE AI OPERATING SYSTEM FOR BUSINESS</div>
+        <div style={bs.tagline}>THE LOCAL-FIRST PRIVACY PERIMETER FOR LLMS</div>
         <div style={bs.console}>
           {lines.slice(0, step).map((l, i) => (
             <div key={i} style={bs.line}>

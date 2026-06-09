@@ -73,12 +73,17 @@ pub struct DetectResult { pub spans: Vec<Span> }
 
 #[tauri::command]
 pub async fn detect(text: String, state: State<'_, AppState>, conv_id: Option<String>) -> Result<DetectResult, String> {
+    // Watchlist lookup locks the store internally — fetch before taking the
+    // lock below or the same task would double-lock the tokio Mutex.
+    let custom = crate::detect::custom::custom_spans(&state.store, &text).await;
     let store = state.store.clone();
     let store = store.lock().await;
     let (mut map, mut counters) = if let Some(cid) = conv_id.as_deref() {
         store.load_alias_state(cid).unwrap_or_default()
     } else { (HashMap::new(), HashMap::new()) };
-    let spans = vendetta::detect(&text, &mut map, &mut counters);
+    let regex_spans = vendetta::detect(&text, &mut map, &mut counters);
+    let merged = crate::detect::merge_spans(regex_spans, custom);
+    let spans = vendetta::apply_alias_map(&merged, &mut map, &mut counters);
     Ok(DetectResult { spans })
 }
 
@@ -115,7 +120,13 @@ pub async fn detect_with_ner(
         Ok(Err(e)) => { eprintln!("live-ner detect error: {e}"); vec![] }
         Err(_timeout) => vec![],
     };
-    let merged = crate::detect::merge_spans(regex_spans, ner_spans);
+    // Merge precedence: built-ins beat custom watchlist terms, custom beats
+    // NER (a user-listed term is explicit intent; NER is probabilistic).
+    let custom = crate::detect::custom::custom_spans(&state.store, &text).await;
+    let merged = crate::detect::merge_spans(
+        crate::detect::merge_spans(regex_spans, custom),
+        ner_spans,
+    );
     let mut map: crate::vendetta::AliasMap = HashMap::new();
     let mut counters: HashMap<String, usize> = HashMap::new();
     let spans = vendetta::apply_alias_map(&merged, &mut map, &mut counters);
@@ -154,6 +165,8 @@ pub struct PipelineTrace {
     /// explain why NER produced nothing without digging in console logs.
     pub ner_status: String,
     pub ner_error: Option<String>,
+    /// Matches from the user-defined custom watchlist (Settings → Watchlist).
+    pub custom_spans_count: usize,
     pub merge_ms: u64,
     pub alias_ms: u64,
     /// Total wall-clock inside send() from entry to just before the stream
@@ -267,8 +280,15 @@ pub async fn send(
     let regex_spans_trace = regex_spans.clone();
     let ner_spans_trace = ner_spans.clone();
 
+    // User watchlist terms. Built-ins beat custom on overlap; custom beats NER.
+    let custom_spans = crate::detect::custom::custom_spans(&store, &args.text).await;
+    let custom_spans_count = custom_spans.len();
+
     let t_merge = std::time::Instant::now();
-    let merged_pre_alias = crate::detect::merge_spans(regex_spans, ner_spans);
+    let merged_pre_alias = crate::detect::merge_spans(
+        crate::detect::merge_spans(regex_spans, custom_spans),
+        ner_spans,
+    );
     let merge_ms = t_merge.elapsed().as_millis() as u64;
 
     let t_alias = std::time::Instant::now();
@@ -327,6 +347,7 @@ pub async fn send(
         ner_spans_count: ner_spans_trace.len(),
         ner_status: ner_status.to_string(),
         ner_error: ner_error.clone(),
+        custom_spans_count,
         merge_ms,
         alias_ms,
         total_pre_dispatch_ms: t_entry.elapsed().as_millis() as u64,
@@ -346,11 +367,15 @@ pub async fn send(
         let mut s = store.lock().await;
         let src = source_for_kind(&critical.kind);
         let _ = s.append_audit_for_spans(&[critical.clone()], "BLOCK", src);
+        // Per-kind copy lives in vendetta::block_policy — the single source of
+        // truth shared (verbatim) with the frontend CRITICAL map.
+        let bp = vendetta::block_policy(&critical.kind)
+            .expect("every critical kind has a block policy (unit-tested invariant)");
         let block = BlockReason {
             kind: critical.kind.as_str().to_string(),
-            rule: "SSN in outbound payload".to_string(),
-            class: "PII_LEVEL_3".to_string(),
-            desc: "Social Security Numbers are prohibited from egress to any third-party model endpoint under HALCYON-SEC-08. Tokenize with PII_LEVEL_3 vault or use Sentynyx Local.".to_string(),
+            rule: bp.rule.to_string(),
+            class: bp.class.to_string(),
+            desc: bp.desc.to_string(),
         };
         let trace = build_trace(&aliased);
         eprintln!("[vendetta] BLOCKED conv={} text={} regex={}ms/{} ner={}ms/{} ({}) alias={}ms total={}ms critical={}",

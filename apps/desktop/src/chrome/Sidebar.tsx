@@ -5,21 +5,25 @@ import type { Conversation } from "../lib/types";
 interface Props {
   activeId: string;
   conversations: Conversation[];
+  /// Real count from the local audit log (ALIAS actions, trailing 7 days).
   redactionsWeek: number;
-  egressCleanPct: number;
+  /// Real count of egress blocks (BLOCK actions, trailing 7 days).
+  blocksWeek: number;
   onSelect: (id: string) => void;
   onNew: () => void;
   onOpenSettings: () => void;
 }
 
-export function Sidebar({ activeId, conversations, redactionsWeek, egressCleanPct, onSelect, onNew, onOpenSettings }: Props) {
+export function Sidebar({ activeId, conversations, redactionsWeek, blocksWeek, onSelect, onNew, onOpenSettings }: Props) {
+  const total = redactionsWeek + blocksWeek;
+  const aliasedPct = total > 0 ? Math.round((redactionsWeek / total) * 100) : 100;
   return (
     <aside style={sx.side}>
       <div style={sx.brand}>
         <SentynyxMark size={30} />
         <div>
           <div style={sx.brandName}>SENTYNYX</div>
-          <div style={sx.brandSub}>AI · OS · v1.4</div>
+          <div style={sx.brandSub}>PRIVACY PERIMETER</div>
         </div>
       </div>
 
@@ -55,20 +59,20 @@ export function Sidebar({ activeId, conversations, redactionsWeek, egressCleanPc
             <span style={sx.live}><span style={sx.liveDot} />LIVE</span>
           </div>
           <div style={{ fontSize:12, color:"var(--ink-1)", lineHeight:1.5 }}>
-            Scanning all outbound traffic. <span style={{ color:"var(--neon)" }}>{redactionsWeek.toLocaleString()}</span> redactions this week.
+            Scanning all outbound traffic. <span style={{ color:"var(--neon)" }}>{redactionsWeek.toLocaleString()}</span> redaction{redactionsWeek === 1 ? "" : "s"} this week.
           </div>
           <div style={sx.meter}>
-            <div style={{ ...sx.meterBar, width:`${egressCleanPct}%` }} />
+            <div style={{ ...sx.meterBar, width:`${aliasedPct}%` }} />
           </div>
           <div style={{ display:"flex", justifyContent:"space-between", fontSize:10, color:"var(--ink-3)", marginTop:6 }}>
-            <span>Egress clean</span><span>{egressCleanPct}%</span>
+            <span>Aliased</span><span>{blocksWeek.toLocaleString()} blocked · 7d</span>
           </div>
         </div>
         <div style={sx.userRow}>
-          <div style={sx.avatar}>KA</div>
+          <div style={sx.avatar}>⛨</div>
           <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontSize:12, fontWeight:500 }}>Kai Alvarez</div>
-            <div style={{ fontSize:10, color:"var(--ink-3)" }}>Halcyon · Admin</div>
+            <div style={{ fontSize:12, fontWeight:500 }}>You</div>
+            <div style={{ fontSize:10, color:"var(--ink-3)" }}>Personal workspace</div>
           </div>
           <button style={sx.iconBtn} title="Settings" onClick={onOpenSettings}>⚙</button>
         </div>

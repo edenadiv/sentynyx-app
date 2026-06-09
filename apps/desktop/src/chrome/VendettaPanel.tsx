@@ -22,7 +22,7 @@ export function VendettaPanel({ spans, open, onClose, aliasMode, setAliasMode }:
   const total = spans.length;
 
   return (
-    <div style={{ ...sx.vPanel, transform: open ? "translateX(0)" : "translateX(110%)" }}>
+    <div data-tour="vendetta-panel" style={{ ...sx.vPanel, transform: open ? "translateX(0)" : "translateX(110%)" }}>
       <div style={sx.vHead}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <div style={sx.vBadge}>

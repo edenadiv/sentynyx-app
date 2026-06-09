@@ -4,7 +4,7 @@ import { onAuditNew } from "../lib/ipc";
 
 type Ping = { angle: number; r: number; t: number; kind: string };
 
-export function ThreatRadar({ redactionsDay, cleanPct }: { redactionsDay: number; cleanPct: number }) {
+export function ThreatRadar({ redactionsDay, blocksWeek }: { redactionsDay: number; blocksWeek: number }) {
   const [sweep, setSweep] = useState(0);
   const [pings, setPings] = useState<Ping[]>([]);
   const rafRef = useRef(0);
@@ -70,8 +70,8 @@ export function ThreatRadar({ redactionsDay, cleanPct }: { redactionsDay: number
         </svg>
       </div>
       <div style={tr.stats}>
-        <div><span style={{ color:"var(--neon)" }}>{redactionsDay.toLocaleString()}</span> redactions/24h</div>
-        <div><span style={{ color:"var(--neon)" }}>{cleanPct.toFixed(1)}%</span> egress clean</div>
+        <div><span style={{ color:"var(--neon)" }}>{redactionsDay.toLocaleString()}</span> redactions · 24h</div>
+        <div><span style={{ color:"var(--neon)" }}>{blocksWeek.toLocaleString()}</span> blocked · 7d</div>
       </div>
     </div>
   );

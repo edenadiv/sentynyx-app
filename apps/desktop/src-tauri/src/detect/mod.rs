@@ -2,6 +2,7 @@ pub mod regex;
 pub mod ner;
 pub mod ner_sidecar;
 pub mod llm;
+pub mod custom;
 
 use async_trait::async_trait;
 use serde::Serialize;

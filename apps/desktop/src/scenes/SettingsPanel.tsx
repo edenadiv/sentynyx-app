@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { ipc, isTauri, modelsIpc, onModelProgress, onModelReady, dataIpc, telemetryIpc, teamIpc, settingsIpc, buildInfoIpc, ollamaIpc, type TeamStatus, type SyncOutcome, type BuildInfo, type OllamaHealth } from "../lib/ipc";
+import { setCustomTerms } from "../lib/vendetta";
 import type { AllModelStatus } from "../lib/types";
 import { modelStatusKind } from "../lib/types";
 
@@ -180,6 +181,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
         </section>
 
+        <WatchlistSection />
         <DataSection />
         <OllamaSection />
         {caps?.telemetry_available && <TelemetrySection />}
@@ -349,6 +351,79 @@ function DataSection() {
                 }}
               >Yes, delete everything</button>
             </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WatchlistSection() {
+  const [text, setText] = useState("");
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    settingsIpc.get("custom_watchlist").then(v => {
+      if (!v) return;
+      try {
+        const terms = JSON.parse(v) as string[];
+        setText(terms.join("\n"));
+      } catch { /* malformed stored value — start fresh */ }
+    }).catch(() => {});
+  }, []);
+
+  const terms = text.split("\n").map(t => t.trim()).filter(t => t.length >= 2);
+
+  const save = async () => {
+    setStatus("saving…");
+    try {
+      const capped = terms.slice(0, 200);
+      if (isTauri) {
+        await settingsIpc.set("custom_watchlist", JSON.stringify(capped));
+      }
+      setCustomTerms(capped); // live highlights update without restart
+      setStatus(`✓ ${capped.length} term${capped.length === 1 ? "" : "s"} active`);
+    } catch (e) {
+      setStatus(`✗ ${String(e)}`);
+    }
+  };
+
+  return (
+    <section style={{ marginTop: 32 }}>
+      <h3 style={{ fontFamily: "Instrument Serif, serif", fontSize: 20, margin: "0 0 12px" }}>
+        Custom watchlist
+      </h3>
+      <div style={{
+        padding: 12, background: "#0a0d14",
+        border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4,
+      }}>
+        <div style={{ fontSize: 11, color: "#9ba3b4", lineHeight: 1.5, marginBottom: 10 }}>
+          Your own sensitive terms — project codenames, client names, internal hostnames.
+          One per line. Matched case-insensitively as whole words, aliased as{" "}
+          <code style={st.codeInline}>⟦custom_NN⟧</code> before egress. Never blocks a send.
+        </div>
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          placeholder={"Project Nightfall\nAcme Corp\nvault-prod-7"}
+          spellCheck={false}
+          style={{
+            ...st.input, width: "100%", minHeight: 96, resize: "vertical",
+            lineHeight: 1.6, boxSizing: "border-box" as const,
+          }}
+        />
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 8 }}>
+          <button onClick={save} style={st.saveBtn}>Save watchlist</button>
+          <span style={{ fontSize: 10, color: "#9ba3b4", fontFamily: "'JetBrains Mono', monospace" }}>
+            {terms.length} term{terms.length === 1 ? "" : "s"} · max 200
+          </span>
+          {status && (
+            <span style={{
+              fontSize: 11,
+              color: status.startsWith("✓") ? "#7cffb2" : status.startsWith("✗") ? "#ff99a8" : "#9ba3b4",
+              fontFamily: "'JetBrains Mono', monospace",
+            }}>{status}</span>
           )}
         </div>
       </div>

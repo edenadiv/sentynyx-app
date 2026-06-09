@@ -106,7 +106,7 @@ export function Composer({ model, onSend, spans, setSpans, text, setText, onTogg
     <div style={cx.wrap}>
       <div style={{ ...cx.glow, opacity: spans.length > 0 ? 1 : 0 }} />
 
-      <div style={{ ...cx.shell, borderColor: spans.length > 0 ? "rgba(242,255,43,0.4)" : "rgba(255,255,255,0.1)" }}>
+      <div data-tour="composer" style={{ ...cx.shell, borderColor: spans.length > 0 ? "rgba(242,255,43,0.4)" : "rgba(255,255,255,0.1)" }}>
         <div style={cx.liveStrip}>
           <div style={cx.liveLeft}>
             <span style={cx.liveDotY} />
@@ -119,7 +119,7 @@ export function Composer({ model, onSend, spans, setSpans, text, setText, onTogg
                 : "Listening · no PII in buffer"}
             </span>
           </div>
-          <button onClick={onToggleVendetta} style={cx.livePanelBtn}>
+          <button data-tour="vendetta-toggle" onClick={onToggleVendetta} style={cx.livePanelBtn}>
             {vendettaOpen ? "HIDE" : "VIEW"} PANEL →
           </button>
         </div>
@@ -156,7 +156,7 @@ export function Composer({ model, onSend, spans, setSpans, text, setText, onTogg
                 <span style={{ color: model.color }}>{PROVIDER_GLYPHS[model.provider]}</span> {model.name}
               </span>
             </div>
-            <button onClick={submit} style={{ ...cx.sendBtn, opacity: text.trim() ? 1 : 0.4 }}>
+            <button data-tour="transmit" onClick={submit} style={{ ...cx.sendBtn, opacity: text.trim() ? 1 : 0.4 }}>
               <span>Transmit</span><span style={{ fontSize:14 }}>↗</span>
             </button>
           </div>

@@ -8,6 +8,46 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **18 new detection classes across 6 industry packs** (`vendetta.rs`).
+  Payment/banking: credit cards (Luhn + per-brand length validation,
+  **blocks egress**), IBAN (mod-97, **blocks**), US routing/account numbers
+  (ABA checksum), SWIFT/BIC, EIN. Secrets: expanded API-key formats
+  (GitHub fine-grained, GitLab, Stripe live, Google, OAuth), JWTs,
+  `-----BEGIN PRIVATE KEY-----` blocks (**blocks**). Identity: DOB,
+  passport, driver's license (context-anchored + plausibility checks).
+  Medical: MRN, NPI (checksum), DEA (checksum), insurance member IDs.
+  Legal: case/docket numbers. Crypto/network: BTC/ETH wallets
+  (Base58Check-validated), IPv6; IPv4 octets now range-validated.
+- **Validator layer**: every checksum-able class is verified post-regex
+  (Luhn, mod-97, ABA, NPI, DEA, date plausibility, Base58Check, IPv6
+  parse) so "looks like a card number" never fires on a tracking number.
+  Validators run at hit-collection time and are fully mirrored in the
+  client-side preview so highlights always match the engine.
+- **Custom watchlist** (Settings → Custom watchlist): your own sensitive
+  terms — codenames, client names, hostnames — matched case-insensitively
+  as whole words and aliased as `⟦custom_NN⟧`. Settings-backed, regex-
+  escaped, capped at 200 terms, never blocks.
+- **Per-kind block policies**: SSN, API keys, credit cards, IBAN, and
+  private keys each get specific, accurate violation copy
+  (`vendetta::block_policy`), replacing the old hardcoded SSN-only text.
+- **Walkable guided tour**: an 11-step spotlight tutorial over the real
+  app that advances on real events — live detection, the alias panel,
+  a real transmit with the X-ray pass, the "Model saw" payload view, the
+  Dev Inspector, and a deliberate SSN block. Auto-offered once after the
+  first-run wizard; re-runnable from ⌘K. Replaces the pre-filled demo
+  prompt.
+- **Real metrics everywhere**: the sidebar, threat radar, empty-state
+  stats, and the (renamed) "Privacy posture" dashboard now read live
+  windowed counts (24h/7d) from the local hash-chained audit log and
+  session time-to-first-token — every fabricated number is gone,
+  including the placeholder SOC 2 / HIPAA "COMPLIANT" tiles, which a
+  public app must never claim.
+- **Eval corpus v2**: 165 fixtures (+59) with explicit negative cases per
+  class (Luhn-fail numbers, tracking numbers, MAC addresses, timestamps,
+  git SHAs); critical zero-miss gate extended to all five blocking
+  classes; `EVAL_DEBUG=1` prints per-fixture FP/FN traces. Measured:
+  precision 0.898, recall 0.851, p99 17 ms, 0 critical misses.
+
 - **Ollama provider** (`apps/desktop/src-tauri/src/providers/ollama.rs`). Run any
   locally-hosted model via Ollama's `/api/chat` (NDJSON streaming), no API key.
   Installed models are discovered at runtime (`ollama_list_models` →

@@ -32,6 +32,9 @@ pub struct AuditMetrics {
     pub redactions_total: i64,
     pub blocks_total: i64,
     pub classes: i64,
+    pub redactions_24h: i64,
+    pub redactions_7d: i64,
+    pub blocks_7d: i64,
 }
 
 impl Store {
@@ -218,7 +221,24 @@ impl Store {
         let redactions_total: i64 = self.conn.query_row("SELECT COUNT(*) FROM audit WHERE action='ALIAS'", [], |r| r.get(0)).unwrap_or(0);
         let blocks_total: i64 = self.conn.query_row("SELECT COUNT(*) FROM audit WHERE action='BLOCK'", [], |r| r.get(0)).unwrap_or(0);
         let classes: i64 = self.conn.query_row("SELECT COUNT(DISTINCT kind) FROM audit", [], |r| r.get(0)).unwrap_or(0);
-        Ok(AuditMetrics { redactions_total, blocks_total, classes })
+        // `ts` is RFC3339 UTC text, so lexicographic >= against another RFC3339
+        // UTC cutoff is chronological — no parsing needed in SQL.
+        let day_ago = (chrono::Utc::now() - chrono::Duration::days(1)).to_rfc3339();
+        let week_ago = (chrono::Utc::now() - chrono::Duration::days(7)).to_rfc3339();
+        let windowed = |action: &str, cutoff: &str| -> i64 {
+            self.conn.query_row(
+                "SELECT COUNT(*) FROM audit WHERE action=? AND ts >= ?",
+                params![action, cutoff], |r| r.get(0),
+            ).unwrap_or(0)
+        };
+        Ok(AuditMetrics {
+            redactions_total,
+            blocks_total,
+            classes,
+            redactions_24h: windowed("ALIAS", &day_ago),
+            redactions_7d: windowed("ALIAS", &week_ago),
+            blocks_7d: windowed("BLOCK", &week_ago),
+        })
     }
 
     /// Fetches up to `limit` audit rows that have not yet been shipped to
@@ -328,6 +348,30 @@ mod tests {
         let cols: Vec<String> = stmt.query_map([], |r| r.get::<_, String>(1))
             .unwrap().collect::<Result<_, _>>().unwrap();
         assert!(cols.contains(&"source".to_string()), "audit.source missing: {:?}", cols);
+    }
+
+    #[test]
+    fn audit_metrics_windows_by_timestamp() {
+        let dir = tempdir().unwrap();
+        let s = open_in(dir.path());
+        let insert = |ts: String, action: &str| {
+            s.conn.execute(
+                "INSERT INTO audit (id, ts, kind, raw_hash, alias, action, prev_hash, sig, source) \
+                 VALUES (?, ?, 'EMAIL', 'h', 'a', ?, 'p', 's', 'regex')",
+                params![uuid::Uuid::new_v4().to_string(), ts, action],
+            ).unwrap();
+        };
+        let now = chrono::Utc::now();
+        insert(now.to_rfc3339(), "ALIAS");                                  // in 24h + 7d
+        insert((now - chrono::Duration::days(3)).to_rfc3339(), "ALIAS");    // in 7d only
+        insert((now - chrono::Duration::days(30)).to_rfc3339(), "ALIAS");   // lifetime only
+        insert((now - chrono::Duration::days(2)).to_rfc3339(), "BLOCK");    // block in 7d
+        let m = s.audit_metrics().unwrap();
+        assert_eq!(m.redactions_total, 3);
+        assert_eq!(m.redactions_24h, 1);
+        assert_eq!(m.redactions_7d, 2);
+        assert_eq!(m.blocks_total, 1);
+        assert_eq!(m.blocks_7d, 1);
     }
 
     #[test]

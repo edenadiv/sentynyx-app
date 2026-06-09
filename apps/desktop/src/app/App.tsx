@@ -21,22 +21,14 @@ import { FirstRunWizard } from "../scenes/FirstRunWizard";
 import { ParanoidToast } from "../scenes/ParanoidToast";
 import { UpdateToast } from "../scenes/UpdateToast";
 import { DevInspector, type TraceRecord } from "../scenes/DevInspector";
+import { GuidedTour } from "../scenes/GuidedTour";
 import { OnboardingCard } from "../scenes/OnboardingCard";
 import { AboutDialog } from "../scenes/AboutDialog";
 import { MODELS, SAMPLE_CONVERSATIONS, ollamaModel } from "../lib/models";
-import { ipc, isTauri, onStreamChunk, modelsIpc, settingsIpc, onTraceStream, onTraceParanoid, onModelReady, ollamaIpc } from "../lib/ipc";
-import { CRITICAL, detect as detectLocal } from "../lib/vendetta";
-import type { AllModelStatus, BlockReason, Conversation, Message, Model, Span, Tweaks } from "../lib/types";
+import { ipc, isTauri, onStreamChunk, onAuditNew, modelsIpc, settingsIpc, onTraceStream, onTraceParanoid, onModelReady, ollamaIpc } from "../lib/ipc";
+import { CRITICAL, detect as detectLocal, setCustomTerms } from "../lib/vendetta";
+import type { AllModelStatus, AuditMetrics, BlockReason, Conversation, Message, Model, Span, Tweaks } from "../lib/types";
 import { modelStatusKind } from "../lib/types";
-
-// Short, punchy first-launch prompt. Hits three detection layers in one line:
-// — regex EMAIL on sarah.chen@halcyon.io
-// — regex NAME on "Sarah Chen" (requires literal capitalized bigram — the
-//   pattern in vendetta.rs is case-sensitive and only covers a hardcoded list)
-// — paranoid LLM on "layoffs" (no token signature, pure semantic sensitivity)
-// Short enough to fit the composer without scrolling; long enough to make the
-// Vendetta panel look busy for the demo.
-const DEMO_DRAFT = `Email Sarah Chen (sarah.chen@halcyon.io) about the layoffs next quarter.`;
 
 const DEFAULT_TWEAKS: Tweaks = {
   accent: "#f2ff2b", density: "comfy", starfield: true, scanAnim: true, defaultModelIdx: 3,
@@ -50,7 +42,7 @@ export function App() {
   const [conversations, setConversations] = useState<Conversation[]>(SAMPLE_CONVERSATIONS);
   const [activeConvo, setActiveConvo] = useState<string>(SAMPLE_CONVERSATIONS[0].id);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [draft, setDraft] = useState(DEMO_DRAFT);
+  const [draft, setDraft] = useState("");
   const [spans, setSpans] = useState<Span[]>([]);
   const [vendettaOpen, setVendettaOpen] = useState(true);
   const [aliasMode, setAliasMode] = useState<"mask"|"alias"|"raw">("alias");
@@ -73,10 +65,15 @@ export function App() {
   const [configuredProviders, setConfiguredProviders] = useState<number>(0);
   const [modelsStatus, setModelsStatus] = useState<AllModelStatus | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
+  /// The walkable guided tour (auto-offered once after the wizard; ⌘K → tour).
+  const [tourOpen, setTourOpen] = useState(false);
   /// Models discovered on the local Ollama server (if running), merged into the
   /// picker alongside the built-in MODELS.
   const [ollamaModels, setOllamaModels] = useState<Model[]>([]);
   const allModels = useMemo(() => [...MODELS, ...ollamaModels], [ollamaModels]);
+  /// Live numbers from the local hash-chained audit log — the ONLY source for
+  /// every stat the chrome displays. No fabricated metrics anywhere.
+  const [auditStats, setAuditStats] = useState<AuditMetrics | null>(null);
 
   const pendingTransmit = useRef<null | { text: string; spans: Span[] }>(null);
 
@@ -102,8 +99,9 @@ export function App() {
       // First-run wizard wins over the bare download panel. It runs once
       // per machine (persisted via the `first_run_seen` settings key).
       try {
-        const [firstRunSeen, modelsStatus] = await Promise.all([
+        const [firstRunSeen, tutorialDone, modelsStatus] = await Promise.all([
           settingsIpc.get("first_run_seen"),
+          settingsIpc.get("tutorial_done"),
           modelsIpc.status(),
         ]);
         const anyModelMissing =
@@ -113,6 +111,10 @@ export function App() {
           setFirstRunOpen(true);
         } else if (anyModelMissing) {
           setModelPanelOpen(true);
+        } else if (!tutorialDone) {
+          // Wizard done, models handled, tour never taken — offer it. The
+          // tour's intro card IS the offer; declining persists tutorial_done.
+          setTourOpen(true);
         }
       } catch {}
     })();
@@ -177,6 +179,14 @@ export function App() {
     return () => { u.then(fn => fn()); };
   }, []);
 
+  // Re-check configured providers whenever Settings closes — the guided
+  // tour's transmit step (and the onboarding card) watch this to unblock
+  // the moment a key is added.
+  useEffect(() => {
+    if (!isTauri || settingsOpen) return;
+    ipc.listConfiguredProviders().then(ps => setConfiguredProviders(ps.length)).catch(() => {});
+  }, [settingsOpen]);
+
   // Discover models on the local Ollama server (if running) and merge them into
   // the picker. Silent no-op when Ollama isn't installed/running.
   useEffect(() => {
@@ -184,6 +194,35 @@ export function App() {
     ollamaIpc.listModels()
       .then(names => setOllamaModels(names.map(ollamaModel)))
       .catch(() => setOllamaModels([]));
+  }, []);
+
+  // Audit metrics drive the sidebar/radar/empty-state numbers. Refresh on
+  // every audit insert so the counters tick live as redactions happen.
+  useEffect(() => {
+    if (!isTauri) return;
+    const refresh = () => ipc.auditMetrics().then(setAuditStats).catch(() => {});
+    refresh();
+    const u = onAuditNew(refresh);
+    return () => { u.then(fn => fn()); };
+  }, []);
+
+  // Mean time-to-first-token across this session's sends (null until data).
+  const meanTtftMs = useMemo(() => {
+    const vals = traces
+      .map(t => t.stream?.ttft_ms)
+      .filter((v): v is number => typeof v === "number");
+    if (vals.length === 0) return null;
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }, [traces]);
+
+  // Hydrate the custom watchlist into the client-side highlighter so the
+  // composer's live preview matches the engine from the first keystroke.
+  useEffect(() => {
+    if (!isTauri) return;
+    settingsIpc.get("custom_watchlist").then(v => {
+      if (!v) return;
+      try { setCustomTerms(JSON.parse(v) as string[]); } catch {}
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -230,6 +269,7 @@ export function App() {
   }, [aliasMode]);
 
   const runCmd = (k: CmdKey) => {
+    if (k === "tour") setTourOpen(true);
     if (k === "orbital") setOrbitalOpen(true);
     if (k === "consensus") setConsensusOpen(true);
     if (k === "compliance") setComplianceOpen(true);
@@ -373,8 +413,8 @@ export function App() {
         <Sidebar
           activeId={activeConvo}
           conversations={conversations}
-          redactionsWeek={1284}
-          egressCleanPct={72}
+          redactionsWeek={auditStats?.redactions_7d ?? 0}
+          blocksWeek={auditStats?.blocks_7d ?? 0}
           onSelect={async (id) => {
             setActiveConvo(id);
             if (isTauri) {
@@ -410,10 +450,16 @@ export function App() {
                   llmStatus={modelsStatus?.llm ?? null}
                   onOpenSettings={() => setSettingsOpen(true)}
                   onOpenModels={() => setModelPanelOpen(true)}
+                  onStartTour={() => setTourOpen(true)}
                 />
               </div>
             )}
-            <Transcript messages={messages} model={model} />
+            <Transcript messages={messages} model={model} stats={{
+              providers: configuredProviders + (ollamaModels.length > 0 ? 1 : 0),
+              models: allModels.length,
+              redactions24h: auditStats?.redactions_24h ?? 0,
+              meanTtftMs,
+            }} />
             <Composer
               model={model}
               onSend={send}
@@ -470,9 +516,37 @@ export function App() {
       {consensusOpen && <ConsensusArena prompt={draft} convId={activeConvo} onClose={() => setConsensusOpen(false)} />}
       {complianceOpen && <ComplianceDashboard onClose={() => setComplianceOpen(false)} />}
       {agentOpen && <AgentDAG onClose={() => setAgentOpen(false)} />}
-      {firstRunOpen && <FirstRunWizard onClose={() => setFirstRunOpen(false)} />}
+      {firstRunOpen && <FirstRunWizard onClose={() => {
+        setFirstRunOpen(false);
+        // Chain into the guided tour the first time through. Its intro card
+        // is the offer — skipping persists tutorial_done and never nags again.
+        if (!isTauri) { setTourOpen(true); return; }
+        settingsIpc.get("tutorial_done")
+          .then(d => { if (!d) setTourOpen(true); })
+          .catch(() => {});
+      }} />}
       {modelPanelOpen && <ModelDownloadPanel onClose={() => setModelPanelOpen(false)} />}
-      {!showBoot && <ThreatRadar redactionsDay={1284} cleanPct={98.2} />}
+      {tourOpen && <GuidedTour
+        onExit={() => {
+          setTourOpen(false);
+          if (isTauri) settingsIpc.set("tutorial_done", "1").catch(() => {});
+        }}
+        spansCount={spans.length}
+        vendettaOpen={vendettaOpen}
+        setVendettaOpen={setVendettaOpen}
+        devOpen={devOpen}
+        violationActive={violation !== null}
+        messages={messages}
+        draft={draft}
+        setDraft={setDraft}
+        xrayActive={xraying !== null}
+        model={model}
+        setModel={setModel}
+        configuredProviders={configuredProviders}
+        modelsStatus={modelsStatus}
+        onOpenSettings={() => setSettingsOpen(true)}
+      />}
+      {!showBoot && <ThreatRadar redactionsDay={auditStats?.redactions_24h ?? 0} blocksWeek={auditStats?.blocks_7d ?? 0} />}
       <ParanoidToast />
       <UpdateToast />
       {devOpen && (

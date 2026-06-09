@@ -1,6 +1,20 @@
 export type Kind =
   | "EMAIL" | "PHONE" | "SSN" | "IP" | "APIKEY" | "URL"
   | "ADDRESS" | "MONEY" | "NAME" | "COMPANY" | "EMPID"
+  // Payment / banking
+  | "CREDITCARD" | "IBAN" | "US_BANK" | "SWIFT_BIC" | "EIN"
+  // Secrets
+  | "JWT" | "PRIVATE_KEY"
+  // Identity documents
+  | "DOB" | "PASSPORT" | "DRIVERS_LICENSE"
+  // Medical
+  | "MRN" | "NPI" | "DEA" | "HEALTH_ID"
+  // Legal
+  | "CASE_NO"
+  // Crypto / network
+  | "CRYPTO_WALLET" | "IPV6"
+  // User-defined watchlist
+  | "CUSTOM"
   | "PERSON_NER" | "ORG_NER" | "CODENAME_NER" | "LOCATION_NER" | "EMPID_NER";
 
 export interface Span {
@@ -49,6 +63,9 @@ export interface AuditMetrics {
   redactions_total: number;
   blocks_total: number;
   classes: number;
+  redactions_24h: number;
+  redactions_7d: number;
+  blocks_7d: number;
 }
 
 export interface Tweaks {

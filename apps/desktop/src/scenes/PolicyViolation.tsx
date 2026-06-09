@@ -52,7 +52,7 @@ export function PolicyViolation({ rule, onDismiss, onRemoveAndRetry, onSwitchToL
         </div>
         <div style={pv.foot}>
           <div style={{ fontSize:10, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace", letterSpacing:1 }}>
-            Event logged · security@halcyonlabs notified
+            Event logged to the local hash-chained audit log (⌘D)
           </div>
           <div style={{ display:"flex", gap:8 }}>
             {onSwitchToLocal && (

@@ -107,6 +107,90 @@ button { font-family:inherit; color:inherit; }
   background: linear-gradient(90deg, transparent, rgba(94, 234, 212, 0.4), transparent);
 }
 
+/* Detection packs — one color per pack so the highlight tells the user what
+   CATEGORY of sensitive data was found at a glance. Legacy kinds stay neon
+   yellow; NER stays teal. */
+
+/* Payment / banking — amber */
+.vend-hit.vend-CREDITCARD, .vend-hit.vend-IBAN, .vend-hit.vend-US_BANK,
+.vend-hit.vend-SWIFT_BIC, .vend-hit.vend-EIN {
+  background: rgba(255, 180, 84, 0.20); color: #ffb454;
+  border-bottom-color: rgba(255, 180, 84, 0.6);
+  box-shadow: 0 0 6px rgba(255, 180, 84, 0.25);
+  text-shadow: 0 0 10px rgba(255, 180, 84, 0.5);
+}
+.vend-hit.vend-CREDITCARD::before, .vend-hit.vend-IBAN::before, .vend-hit.vend-US_BANK::before,
+.vend-hit.vend-SWIFT_BIC::before, .vend-hit.vend-EIN::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 180, 84, 0.4), transparent);
+}
+
+/* Secrets — magenta */
+.vend-hit.vend-JWT, .vend-hit.vend-PRIVATE_KEY {
+  background: rgba(255, 94, 196, 0.20); color: #ff5ec4;
+  border-bottom-color: rgba(255, 94, 196, 0.6);
+  box-shadow: 0 0 6px rgba(255, 94, 196, 0.25);
+  text-shadow: 0 0 10px rgba(255, 94, 196, 0.5);
+}
+.vend-hit.vend-JWT::before, .vend-hit.vend-PRIVATE_KEY::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 94, 196, 0.4), transparent);
+}
+
+/* Identity documents — violet */
+.vend-hit.vend-DOB, .vend-hit.vend-PASSPORT, .vend-hit.vend-DRIVERS_LICENSE {
+  background: rgba(180, 140, 255, 0.20); color: #b48cff;
+  border-bottom-color: rgba(180, 140, 255, 0.6);
+  box-shadow: 0 0 6px rgba(180, 140, 255, 0.25);
+  text-shadow: 0 0 10px rgba(180, 140, 255, 0.5);
+}
+.vend-hit.vend-DOB::before, .vend-hit.vend-PASSPORT::before, .vend-hit.vend-DRIVERS_LICENSE::before {
+  background: linear-gradient(90deg, transparent, rgba(180, 140, 255, 0.4), transparent);
+}
+
+/* Medical — mint */
+.vend-hit.vend-MRN, .vend-hit.vend-NPI, .vend-hit.vend-DEA, .vend-hit.vend-HEALTH_ID {
+  background: rgba(74, 222, 128, 0.20); color: #4ade80;
+  border-bottom-color: rgba(74, 222, 128, 0.6);
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.25);
+  text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+.vend-hit.vend-MRN::before, .vend-hit.vend-NPI::before, .vend-hit.vend-DEA::before,
+.vend-hit.vend-HEALTH_ID::before {
+  background: linear-gradient(90deg, transparent, rgba(74, 222, 128, 0.4), transparent);
+}
+
+/* Legal — periwinkle */
+.vend-hit.vend-CASE_NO {
+  background: rgba(122, 162, 255, 0.20); color: #7aa2ff;
+  border-bottom-color: rgba(122, 162, 255, 0.6);
+  box-shadow: 0 0 6px rgba(122, 162, 255, 0.25);
+  text-shadow: 0 0 10px rgba(122, 162, 255, 0.5);
+}
+.vend-hit.vend-CASE_NO::before {
+  background: linear-gradient(90deg, transparent, rgba(122, 162, 255, 0.4), transparent);
+}
+
+/* Crypto / network — sky */
+.vend-hit.vend-CRYPTO_WALLET, .vend-hit.vend-IPV6 {
+  background: rgba(56, 189, 248, 0.20); color: #38bdf8;
+  border-bottom-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.25);
+  text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+}
+.vend-hit.vend-CRYPTO_WALLET::before, .vend-hit.vend-IPV6::before {
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), transparent);
+}
+
+/* Custom watchlist — white with a dashed underline: visually "yours" */
+.vend-hit.vend-CUSTOM {
+  background: rgba(255, 255, 255, 0.14); color: #ffffff;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.7);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.2);
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+}
+.vend-hit.vend-CUSTOM::before {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+}
+
 .caret {
   display:inline-block; width:8px; height:16px;
   background: var(--neon);

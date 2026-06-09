@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
-export type CmdKey = "orbital"|"consensus"|"compliance"|"agent"|"newchat"|"toggle-v"|"policy"|"audit"|"atlas"|"role"|"settings";
+export type CmdKey = "orbital"|"consensus"|"compliance"|"agent"|"newchat"|"toggle-v"|"policy"|"audit"|"atlas"|"role"|"settings"|"tour";
 
 const ALL: { k: CmdKey; t: string; g: string; sh?: string }[] = [
+  { k:"tour",       t:"Take the guided tour",         g:"HELP" },
   { k:"orbital",    t:"Open Orbital Picker",          g:"FLEET", sh:"⌘O" },
   { k:"consensus",  t:"Start Multi-Model Consensus",  g:"FLEET", sh:"⌘M" },
   { k:"compliance", t:"Open Compliance Dashboard",    g:"VIEW",  sh:"⌘D" },

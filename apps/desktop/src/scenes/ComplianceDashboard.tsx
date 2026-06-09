@@ -1,11 +1,20 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { ipc, isTauri } from "../lib/ipc";
-import type { AuditEntry, AuditMetrics } from "../lib/types";
+import { ipc, isTauri, modelsIpc } from "../lib/ipc";
+import type { AuditEntry, AuditMetrics, AllModelStatus } from "../lib/types";
+import { modelStatusKind } from "../lib/types";
 
+// Every number on this screen comes from the local hash-chained audit log or
+// the live engine state — nothing is fabricated. (This scene used to render
+// made-up "SOC 2 / HIPAA COMPLIANT" tiles; a public app must never claim
+// certifications it doesn't hold.)
 export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
   const [audit, setAudit] = useState<AuditEntry[]>([]);
-  const [metrics, setMetrics] = useState<AuditMetrics>({ redactions_total: 0, blocks_total: 0, classes: 0 });
+  const [metrics, setMetrics] = useState<AuditMetrics>({
+    redactions_total: 0, blocks_total: 0, classes: 0,
+    redactions_24h: 0, redactions_7d: 0, blocks_7d: 0,
+  });
+  const [models, setModels] = useState<AllModelStatus | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -13,17 +22,23 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
       try {
         setAudit(await ipc.listAudit(20));
         setMetrics(await ipc.auditMetrics());
+        setModels(await modelsIpc.status());
       } catch {}
     })();
   }, []);
 
+  const nerReady = models !== null
+    && modelStatusKind(models.ner) === "ready"
+    && modelStatusKind(models.ner_tokenizer) === "ready";
+  const paranoidReady = models !== null && modelStatusKind(models.llm) === "ready";
+
   const tiles = [
-    { n:"SOC 2 TYPE II", s:"COMPLIANT", v:99.1, c:"var(--good)" },
-    { n:"GDPR",         s:"COMPLIANT", v:98.4, c:"var(--good)" },
-    { n:"HIPAA",        s:"COMPLIANT", v:97.9, c:"var(--good)" },
-    { n:"ISO 27001",    s:"IN REVIEW", v:92.0, c:"var(--neon)" },
-    { n:"CCPA",         s:"COMPLIANT", v:99.6, c:"var(--good)" },
-    { n:"EU AI ACT",    s:"MONITORED", v:94.3, c:"var(--neon)" },
+    { n: "REDACTIONS · 24H", v: metrics.redactions_24h.toLocaleString(), s: "aliased before egress", c: "var(--neon)" },
+    { n: "REDACTIONS · 7D", v: metrics.redactions_7d.toLocaleString(), s: "aliased before egress", c: "var(--neon)" },
+    { n: "BLOCKS · 7D", v: metrics.blocks_7d.toLocaleString(), s: "egress prevented", c: metrics.blocks_7d > 0 ? "#ff99a8" : "var(--good)" },
+    { n: "TOKEN CLASSES", v: String(metrics.classes), s: "distinct kinds observed", c: "var(--good)" },
+    { n: "REGEX ENGINE", v: "ACTIVE", s: "27 patterns · 6 packs", c: "var(--good)" },
+    { n: "SEMANTIC LAYERS", v: nerReady ? (paranoidReady ? "NER + LLM" : "NER") : "OFF", s: nerReady ? "on-device models loaded" : "download via Settings", c: nerReady ? "var(--good)" : "var(--ink-3)" },
   ];
 
   return (
@@ -31,16 +46,19 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
       <div style={cd.stage}>
         <div style={cd.header}>
           <div>
-            <div style={{ fontSize:10, letterSpacing:4, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace" }}>GOVERNANCE</div>
+            <div style={{ fontSize:10, letterSpacing:4, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace" }}>AUDIT</div>
             <div style={{ fontFamily:"'Instrument Serif',serif", fontSize:36, marginTop:4 }}>
-              Compliance <em style={{ color:"var(--neon)" }}>cockpit</em>
+              Privacy <em style={{ color:"var(--neon)" }}>posture</em>
+            </div>
+            <div style={{ fontSize:11, color:"var(--ink-2)", marginTop:4 }}>
+              Every number below comes from the hash-chained audit log on this machine.
             </div>
           </div>
           <div style={{ display:"flex", alignItems:"center", gap:14 }}>
             <div style={cd.score}>
-              <div style={{ fontSize:10, letterSpacing:2, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace" }}>COMPOSITE</div>
-              <div style={{ fontFamily:"'Instrument Serif',serif", fontSize:40, color:"var(--neon)", lineHeight:1 }}>98.2%</div>
-              <div style={{ fontSize:10, color:"var(--good)", fontFamily:"'JetBrains Mono',monospace" }}>▲ 0.4 · 7d</div>
+              <div style={{ fontSize:10, letterSpacing:2, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace" }}>LIFETIME</div>
+              <div style={{ fontFamily:"'Instrument Serif',serif", fontSize:40, color:"var(--neon)", lineHeight:1 }}>{metrics.redactions_total.toLocaleString()}</div>
+              <div style={{ fontSize:10, color:"var(--good)", fontFamily:"'JetBrains Mono',monospace" }}>tokens aliased</div>
             </div>
             <button onClick={onClose} style={cd.close}>×</button>
           </div>
@@ -49,19 +67,16 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
         <div style={cd.tileGrid}>
           {tiles.map(t => (
             <div key={t.n} style={cd.tile}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"baseline", marginBottom:8 }}>
-                <div style={{ fontSize:11, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", color:"var(--ink-1)" }}>{t.n}</div>
-                <div style={{ fontSize:9, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", color:t.c }}>{t.s}</div>
-              </div>
-              <div style={{ fontFamily:"'Instrument Serif',serif", fontSize:30, color:"#fff" }}>{t.v}%</div>
-              <div style={cd.bar}><div style={{ ...cd.barFill, width: t.v + "%", background:t.c }} /></div>
+              <div style={{ fontSize:10, letterSpacing:2, fontFamily:"'JetBrains Mono',monospace", color:"var(--ink-1)", marginBottom:8 }}>{t.n}</div>
+              <div style={{ fontFamily:"'Instrument Serif',serif", fontSize:28, color: t.c }}>{t.v}</div>
+              <div style={{ fontSize:9, letterSpacing:1, fontFamily:"'JetBrains Mono',monospace", color:"var(--ink-3)", marginTop:6 }}>{t.s}</div>
             </div>
           ))}
         </div>
 
         <div style={cd.row2}>
           <div style={cd.card}>
-            <div style={cd.cardHead}>AUDIT FEED · CRYPTO-SIGNED</div>
+            <div style={cd.cardHead}>AUDIT FEED · HASH-CHAINED</div>
             <div style={{ display:"flex", flexDirection:"column", gap:6, fontFamily:"'JetBrains Mono',monospace", fontSize:11 }}>
               {audit.length === 0 && (
                 <div style={{ color:"var(--ink-3)", padding:"10px 0" }}>No audit entries yet — send a prompt with PII to populate.</div>
@@ -69,7 +84,7 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
               {audit.map((r) => (
                 <div key={r.id} style={{ display:"flex", gap:10, alignItems:"center", padding:"4px 8px", background:"rgba(255,255,255,0.02)", borderRadius:4 }}>
                   <span style={{ color:"var(--ink-3)" }}>{r.ts.slice(11, 19)}</span>
-                  <span style={{ color:"var(--neon)", width:60 }}>{r.kind}</span>
+                  <span style={{ color:"var(--neon)", width:96 }}>{r.kind}</span>
                   <span style={{ flex:1, color:"var(--ink-1)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
                     {r.raw_hash.slice(0, 10)}… → {r.alias}
                   </span>
@@ -83,10 +98,8 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
 
         <div style={cd.bottomRow}>
           <Metric label="Sensitive tokens aliased" value={metrics.redactions_total.toLocaleString()} sub="lifetime" accent />
-          <Metric label="Policy violations blocked" value={metrics.blocks_total.toLocaleString()} sub="lifetime" />
+          <Metric label="Egress blocks" value={metrics.blocks_total.toLocaleString()} sub="lifetime" />
           <Metric label="Token classes observed" value={metrics.classes.toString()} sub="distinct kinds" />
-          <Metric label="Mean egress latency" value="712ms" sub="p99 · 1.2s" />
-          <Metric label="Cost saved vs. vendor" value="$1.24M" sub="smart routing" accent />
         </div>
       </div>
     </div>
@@ -118,11 +131,9 @@ const cd: Record<string, CSSProperties> = {
     background:"rgba(242,255,43,0.04)", textAlign:"right" },
   tileGrid:{ display:"grid", gridTemplateColumns:"repeat(6,1fr)", gap:10, marginBottom:16 },
   tile:{ padding:14, background:"rgba(255,255,255,0.02)", border:"1px solid var(--line)", borderRadius:10 },
-  bar:{ height:3, background:"rgba(255,255,255,0.05)", marginTop:8, borderRadius:99, overflow:"hidden" },
-  barFill:{ height:"100%" },
   row2:{ display:"grid", gridTemplateColumns:"1fr", gap:12, marginBottom:16 },
   card:{ padding:16, background:"rgba(255,255,255,0.02)", border:"1px solid var(--line)", borderRadius:10 },
   cardHead:{ fontSize:10, letterSpacing:3, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace", marginBottom:12 },
-  bottomRow:{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:10 },
+  bottomRow:{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:10 },
   metric:{ padding:14, background:"rgba(255,255,255,0.02)", border:"1px solid var(--line)", borderRadius:10 },
 };

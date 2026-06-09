@@ -81,7 +81,7 @@ export function TopBar(p: Props) {
         <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:11, letterSpacing:2, color:"var(--ink-2)" }}>
           <span>WORKSPACE</span>
           <span style={sx.chevron}>›</span>
-          <span style={{ color:"var(--ink-0)" }}>Halcyon Labs</span>
+          <span style={{ color:"var(--ink-0)" }}>Personal</span>
           <span style={sx.chevron}>›</span>
           <span style={{ color:"var(--neon)" }}>Mission Control</span>
         </div>
@@ -155,6 +155,7 @@ export function TopBar(p: Props) {
         </button>
         {p.onOpenDev && (
           <button
+            data-tour="dev-toggle"
             style={sx.iconBtn}
             onClick={p.onOpenDev}
             title="Dev inspector — per-send timings, wire payload, paranoid scan (⌘⇧D)"
