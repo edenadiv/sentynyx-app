@@ -35,6 +35,8 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "DOB", re: /\b(?:dob|date of birth|birth ?date|born(?: on)?)\.?[:\s]+(\d{1,2}[/\-.]\d{1,2}[/\-.](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.? +\d{1,2},? +\d{4})\b/gi, cap: true },
   { kind: "PASSPORT", re: /\bpassport(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9]{6,9})\b/gi, cap: true },
   { kind: "DRIVERS_LICENSE", re: /\b(?:driver'?s? licen[cs]e|dl)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9-]{4,13})\b/gi, cap: true },
+  // VIN: unanchored, ISO 3779 check digit does the real filtering.
+  { kind: "VIN", re: /\b[A-HJ-NPR-Z0-9]{17}\b/g },
   { kind: "US_ITIN", re: /\bitin(?:\s*(?:no|number|#))?\.?[:\s]+(9\d{2}-(?:7\d|8[0-8]|9[0-24-9])-\d{4})\b/gi, cap: true },
   { kind: "CA_SIN", re: /\b(?:sin|social insurance)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ -]?\d{3}[ -]?\d{3})\b/gi, cap: true },
   { kind: "UK_NHS", re: /\bnhs(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ -]?\d{3}[ -]?\d{4})\b/gi, cap: true },
@@ -44,6 +46,9 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "MRN", re: /\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9-]{5,12})\b/gi, cap: true },
   { kind: "NPI", re: /\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b/gi, cap: true },
   { kind: "DEA", re: /\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b/gi, cap: true },
+  // Medicare MBI before the generic HEALTH_ID anchor (same-span tie must
+  // resolve to the specific kind, mirroring the Rust ordering).
+  { kind: "MEDICARE_MBI", re: /\b(?:medicare|mbi)(?:\s*(?:no|number|id|#))?\.?[:\s]+([0-9][A-Za-z][A-Za-z0-9][0-9]-?[A-Za-z][A-Za-z0-9][0-9]-?[A-Za-z]{2}[0-9]{2})\b/gi, cap: true },
   { kind: "HEALTH_ID", re: /\b(?:member|subscriber|insurance|policy)\s*(?:id)?\s*(?:no|number|#)?\.?[:\s]+([A-Z0-9-]{6,15})\b/gi, cap: true },
   { kind: "CASE_NO", re: /\b(?:case|docket|matter)\s*(?:no|number|#)?\.?[:\s]+([A-Z0-9][A-Z0-9:.-]{3,19})\b/gi, cap: true },
   { kind: "CASE_NO", re: /\b\d{1,2}:\d{2}-(?:cv|cr|cm|md|mc|mj|po|sw)-\d{2,6}(?:-[A-Z]{2,4})?\b/g },
@@ -71,10 +76,11 @@ export const LABELS: Record<Kind, string> = {
   CREDITCARD: "card", IBAN: "iban", US_BANK: "bank", SWIFT_BIC: "swift", EIN: "ein",
   JWT: "jwt", PRIVATE_KEY: "private-key", CONNECTION_STRING: "conn-string",
   CREDENTIAL: "credential",
-  DOB: "dob", PASSPORT: "passport", DRIVERS_LICENSE: "license",
+  DOB: "dob", PASSPORT: "passport", DRIVERS_LICENSE: "license", VIN: "vin",
   US_ITIN: "itin", CA_SIN: "sin", UK_NHS: "nhs", UK_NINO: "nino",
   AU_TFN: "tfn", AADHAAR: "aadhaar",
   MRN: "mrn", NPI: "npi", DEA: "dea", HEALTH_ID: "member-id",
+  MEDICARE_MBI: "medicare-mbi",
   CASE_NO: "case",
   CRYPTO_WALLET: "wallet", IPV6: "ipv6", MAC_ADDRESS: "mac",
   CUSTOM: "custom",
@@ -407,6 +413,37 @@ function cryptoWallet(raw: string): boolean {
 
 const hasDigit = (raw: string) => /\d/.test(raw);
 
+/** ISO 3779 VIN check digit — mirror of validators::vin. */
+function vin(raw: string): boolean {
+  if (raw.length !== 17) return false;
+  const T: Record<string, number> = {
+    A: 1, J: 1, B: 2, K: 2, S: 2, C: 3, L: 3, T: 3, D: 4, M: 4, U: 4,
+    E: 5, N: 5, V: 5, F: 6, W: 6, G: 7, P: 7, X: 7, H: 8, Y: 8, R: 9, Z: 9,
+  };
+  const W = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
+  let sum = 0;
+  for (let i = 0; i < 17; i++) {
+    const c = raw[i];
+    const v = c >= "0" && c <= "9" ? Number(c) : T[c];
+    if (v === undefined) return false;
+    sum += v * W[i];
+  }
+  const r = sum % 11;
+  return raw[8] === (r === 10 ? "X" : String(r));
+}
+
+/** Medicare MBI per-position CMS classes — mirror of validators::medicare_mbi. */
+function medicareMbi(raw: string): boolean {
+  const s = raw.replace(/-/g, "").toUpperCase();
+  if (s.length !== 11) return false;
+  const letterOk = (c: string) => c >= "A" && c <= "Z" && !"SLOIBZ".includes(c);
+  const digit = (c: string) => c >= "0" && c <= "9";
+  return s[0] >= "1" && s[0] <= "9"
+    && letterOk(s[1]) && (letterOk(s[2]) || digit(s[2])) && digit(s[3])
+    && letterOk(s[4]) && (letterOk(s[5]) || digit(s[5])) && digit(s[6])
+    && letterOk(s[7]) && letterOk(s[8]) && digit(s[9]) && digit(s[10]);
+}
+
 /** Shannon entropy in bits/char — prose ≈2–2.8, generated secrets ≈3.5+. */
 function shannonEntropy(s: string): number {
   const counts = new Map<string, number>();
@@ -447,9 +484,9 @@ function credentialValue(raw: string): boolean {
 
 export const TOGGLEABLE_PACKS: { id: string; name: string; hint: string }[] = [
   { id: "payment", name: "Payment & banking", hint: "cards · IBAN · routing · SWIFT · EIN" },
-  { id: "identity", name: "Identity documents", hint: "DOB · passport · driver's license" },
+  { id: "identity", name: "Identity documents", hint: "DOB · passport · driver's license · VIN" },
   { id: "national-id", name: "National IDs", hint: "ITIN · SIN · NHS · NINO · TFN · Aadhaar" },
-  { id: "medical", name: "Medical", hint: "MRN · NPI · DEA · member IDs" },
+  { id: "medical", name: "Medical", hint: "MRN · NPI · DEA · member IDs · Medicare MBI" },
   { id: "legal", name: "Legal", hint: "case & docket numbers" },
   { id: "network", name: "Network & crypto", hint: "IPs · MAC · wallets" },
 ];
@@ -458,11 +495,11 @@ export function packFor(kind: Kind): string {
   switch (kind) {
     case "CREDITCARD": case "IBAN": case "US_BANK": case "SWIFT_BIC": case "EIN":
       return "payment";
-    case "DOB": case "PASSPORT": case "DRIVERS_LICENSE":
+    case "DOB": case "PASSPORT": case "DRIVERS_LICENSE": case "VIN":
       return "identity";
     case "US_ITIN": case "CA_SIN": case "UK_NHS": case "UK_NINO": case "AU_TFN": case "AADHAAR":
       return "national-id";
-    case "MRN": case "NPI": case "DEA": case "HEALTH_ID":
+    case "MRN": case "NPI": case "DEA": case "HEALTH_ID": case "MEDICARE_MBI":
       return "medical";
     case "CASE_NO":
       return "legal";
@@ -489,10 +526,10 @@ export function confidenceFor(kind: Kind): number {
     case "CREDITCARD": case "IBAN": case "US_BANK": case "SWIFT_BIC":
     case "NPI": case "DEA": case "CA_SIN": case "UK_NHS": case "AU_TFN":
     case "AADHAAR": case "SSN": case "IP": case "IPV6": case "CRYPTO_WALLET":
-    case "PRIVATE_KEY": case "CONNECTION_STRING": case "CUSTOM":
+    case "PRIVATE_KEY": case "CONNECTION_STRING": case "CUSTOM": case "VIN":
       return 1.0;
     case "EMAIL": case "URL": case "APIKEY": case "JWT": case "MAC_ADDRESS":
-    case "EIN": case "US_ITIN":
+    case "EIN": case "US_ITIN": case "MEDICARE_MBI":
       return 0.95;
     case "DOB": case "PASSPORT": case "DRIVERS_LICENSE": case "MRN":
     case "HEALTH_ID": case "CASE_NO": case "UK_NINO": case "CREDENTIAL":
@@ -522,6 +559,8 @@ export function validate(kind: Kind, raw: string): boolean {
     case "IPV6": return ipv6Parses(raw);
     case "CRYPTO_WALLET": return cryptoWallet(raw);
     case "CREDENTIAL": return credentialValue(raw);
+    case "VIN": return vin(raw);
+    case "MEDICARE_MBI": return medicareMbi(raw);
     case "PASSPORT":
     case "DRIVERS_LICENSE":
     case "MRN":

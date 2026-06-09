@@ -89,16 +89,16 @@ or visit the hosted demo at **https://edenadiv.github.io/sentynyx-app/**. Type a
 
 Four layers run on every send and merge into one alias map:
 
-1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 39 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
+1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 41 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
 
 | Pack | Classes | Validation |
 | --- | --- | --- |
 | Core PII | email, phone, SSN†, IPv4/IPv6, MAC, URL, address, money, employee ID | octet ranges, IPv6 parse |
 | Payment / banking | credit card†, IBAN†, US routing + account, SWIFT/BIC, EIN | Luhn + brand lengths, mod-97, ABA checksum |
 | Secrets | API keys† (OpenAI/Anthropic/Google/AWS access + secret/GitHub/GitLab/Stripe/Slack…), bearer-token headers†, JWTs, private-key blocks†, credentialed DB connection strings†, generic `password=`/`secret:` assignments† | distinctive prefixes, context anchors, URI credential shape, Shannon entropy + placeholder stoplist |
-| Identity | date of birth, passport, driver's license | context anchors + date plausibility |
+| Identity | date of birth, passport, driver's license, VIN | context anchors + date plausibility, ISO 3779 check digit |
 | National IDs | US ITIN, Canadian SIN, UK NHS + National Insurance, Australian TFN, Aadhaar | Luhn, NHS mod-11, TFN weighted mod-11, Verhoeff |
-| Medical | MRN, NPI, DEA, insurance member ID | NPI + DEA checksums |
+| Medical | MRN, NPI, DEA, insurance member ID, Medicare MBI | NPI + DEA checksums, CMS character classes |
 | Legal / crypto | case & docket numbers, BTC/ETH wallets | Base58Check |
 
 † = **blocks egress entirely** — the request is never made.
@@ -136,8 +136,10 @@ The NER sidecar (`apps/desktop/src-tauri/binaries/sentynyx-ner-*`) is built by `
 
 Windows build deps: the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) —
 `llama.cpp` local inference compiles its Vulkan backend (broadest GPU support on
-Windows), and its build script requires `VULKAN_SDK` to be set. The
-`cargo-check-windows` CI job installs it the same way and is the reference recipe.
+Windows), and its build script requires `VULKAN_SDK` to be set. Build from a
+*Developer PowerShell* with `CMAKE_GENERATOR=Ninja` (the MSBuild generator is
+prone to MSVC C1041 PDB races in llama.cpp's shader sub-build). The
+`cargo-check-windows` CI job does exactly this and is the reference recipe.
 
 Linux build deps:
 

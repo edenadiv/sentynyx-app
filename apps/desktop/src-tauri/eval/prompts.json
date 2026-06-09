@@ -1766,6 +1766,36 @@
    "id": "cr007",
    "text": "drop your token = <your-token-here> placeholder into .env.example",
    "expected": []
+  },
+  {
+   "id": "vin001",
+   "text": "totaled the civic, VIN 1HGCM82633A004352 — draft the insurance claim",
+   "expected": [
+    {
+     "kind": "VIN",
+     "raw": "1HGCM82633A004352"
+    }
+   ]
+  },
+  {
+   "id": "vin002",
+   "text": "batch ref 1HGCM82633A004353 failed the import twice",
+   "expected": []
+  },
+  {
+   "id": "mbi001",
+   "text": "appeal letter for medicare id: 1EG4-TE5-MK73, denied on 4/12",
+   "expected": [
+    {
+     "kind": "MEDICARE_MBI",
+     "raw": "1EG4-TE5-MK73"
+    }
+   ]
+  },
+  {
+   "id": "mbi002",
+   "text": "medicare id: 1SG4-TE5-MK73 came back invalid from the clearinghouse",
+   "expected": []
   }
  ]
 }

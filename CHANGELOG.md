@@ -8,6 +8,10 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **VIN + Medicare MBI detection**: vehicle identification numbers are caught
+  unanchored via the ISO 3779 check digit (identity pack); Medicare Beneficiary
+  Identifiers via a `medicare:`/`mbi:` anchor plus the CMS per-position
+  character classes (medical pack). 41 patterns total.
 - **Generic credential detection (blocking)**: `password=…`, `"api_key": "…"`,
   `secret: …`-style assignments are caught by a context anchor plus a
   Shannon-entropy validator with a placeholder stoplist — `password=changeme`

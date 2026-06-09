@@ -16,11 +16,11 @@ pub enum Kind {
     // Secrets
     JWT, PRIVATE_KEY, CONNECTION_STRING, CREDENTIAL,
     // Identity documents
-    DOB, PASSPORT, DRIVERS_LICENSE,
+    DOB, PASSPORT, DRIVERS_LICENSE, VIN,
     // National / government identifiers (region packs)
     US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR,
     // Medical
-    MRN, NPI, DEA, HEALTH_ID,
+    MRN, NPI, DEA, HEALTH_ID, MEDICARE_MBI,
     // Legal
     CASE_NO,
     // Crypto / network
@@ -42,9 +42,11 @@ impl Kind {
             Kind::JWT => "jwt", Kind::PRIVATE_KEY => "private-key", Kind::CONNECTION_STRING => "conn-string",
             Kind::CREDENTIAL => "credential",
             Kind::DOB => "dob", Kind::PASSPORT => "passport", Kind::DRIVERS_LICENSE => "license",
+            Kind::VIN => "vin",
             Kind::US_ITIN => "itin", Kind::CA_SIN => "sin", Kind::UK_NHS => "nhs",
             Kind::UK_NINO => "nino", Kind::AU_TFN => "tfn", Kind::AADHAAR => "aadhaar",
             Kind::MRN => "mrn", Kind::NPI => "npi", Kind::DEA => "dea", Kind::HEALTH_ID => "member-id",
+            Kind::MEDICARE_MBI => "medicare-mbi",
             Kind::CASE_NO => "case",
             Kind::CRYPTO_WALLET => "wallet", Kind::IPV6 => "ipv6", Kind::MAC_ADDRESS => "mac",
             Kind::CUSTOM => "custom",
@@ -64,9 +66,11 @@ impl Kind {
             Kind::JWT => "JWT", Kind::PRIVATE_KEY => "PRIVATE_KEY", Kind::CONNECTION_STRING => "CONNECTION_STRING",
             Kind::CREDENTIAL => "CREDENTIAL",
             Kind::DOB => "DOB", Kind::PASSPORT => "PASSPORT", Kind::DRIVERS_LICENSE => "DRIVERS_LICENSE",
+            Kind::VIN => "VIN",
             Kind::US_ITIN => "US_ITIN", Kind::CA_SIN => "CA_SIN", Kind::UK_NHS => "UK_NHS",
             Kind::UK_NINO => "UK_NINO", Kind::AU_TFN => "AU_TFN", Kind::AADHAAR => "AADHAAR",
             Kind::MRN => "MRN", Kind::NPI => "NPI", Kind::DEA => "DEA", Kind::HEALTH_ID => "HEALTH_ID",
+            Kind::MEDICARE_MBI => "MEDICARE_MBI",
             Kind::CASE_NO => "CASE_NO",
             Kind::CRYPTO_WALLET => "CRYPTO_WALLET", Kind::IPV6 => "IPV6", Kind::MAC_ADDRESS => "MAC_ADDRESS",
             Kind::CUSTOM => "CUSTOM",
@@ -100,10 +104,10 @@ fn default_confidence() -> f32 { 1.0 }
 pub fn pack_for(kind: &Kind) -> &'static str {
     match kind {
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC | Kind::EIN => "payment",
-        Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE => "identity",
+        Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::VIN => "identity",
         Kind::US_ITIN | Kind::CA_SIN | Kind::UK_NHS | Kind::UK_NINO | Kind::AU_TFN
         | Kind::AADHAAR => "national-id",
-        Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID => "medical",
+        Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID | Kind::MEDICARE_MBI => "medical",
         Kind::CASE_NO => "legal",
         Kind::CRYPTO_WALLET | Kind::IPV6 | Kind::MAC_ADDRESS | Kind::IP => "network",
         Kind::APIKEY | Kind::JWT | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING
@@ -129,10 +133,10 @@ pub fn confidence_for(kind: &Kind) -> f32 {
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC
         | Kind::NPI | Kind::DEA | Kind::CA_SIN | Kind::UK_NHS | Kind::AU_TFN
         | Kind::AADHAAR | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
-        | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM => 1.0,
+        | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM | Kind::VIN => 1.0,
         // Highly distinctive structural format, no checksum.
         Kind::EMAIL | Kind::URL | Kind::APIKEY | Kind::JWT | Kind::MAC_ADDRESS
-        | Kind::EIN | Kind::US_ITIN => 0.95,
+        | Kind::EIN | Kind::US_ITIN | Kind::MEDICARE_MBI => 0.95,
         // Context-anchored with a weak value check (presence of a digit, a
         // plausible date, structural rules, entropy).
         Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::MRN
@@ -194,6 +198,10 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     pc(Kind::DOB, r"(?i)\b(?:dob|date of birth|birth\s?date|born(?:\s+on)?)\.?[:\s]+(\d{1,2}[/\-\.]\d{1,2}[/\-\.](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?\s+\d{4})\b"),
     pc(Kind::PASSPORT, r"(?i)\bpassport(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9]{6,9})\b"),
     pc(Kind::DRIVERS_LICENSE, r"(?i)\b(?:driver'?s?\s+licen[cs]e|dl)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{4,13})\b"),
+    // VIN: unanchored 17-char (charset excludes I/O/Q) gated by the ISO 3779
+    // check digit — ~1/11 selectivity on top of the strict charset. Known
+    // miss: EU-market VINs without a valid North-American check digit.
+    p(Kind::VIN, r"\b[A-HJ-NPR-Z0-9]{17}\b"),
     // National / government identifiers. All context-anchored (bare digit
     // runs are ambiguous across regions) and checksum-validated where the
     // scheme defines one. NHS values are 3-3-4 like US phone numbers — the
@@ -207,6 +215,10 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     pc(Kind::MRN, r"(?i)\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{5,12})\b"),
     pc(Kind::NPI, r"(?i)\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b"),
     pc(Kind::DEA, r"(?i)\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b"),
+    // Medicare MBI before the generic HEALTH_ID anchor — "medicare id:
+    // 1EG4-TE5-MK73" satisfies both shapes and the specific kind must win
+    // the span tie. Per-position CMS character classes live in the validator.
+    pc(Kind::MEDICARE_MBI, r"(?i)\b(?:medicare|mbi)(?:\s*(?:no|number|id|#))?\.?[:\s]+([0-9][A-Za-z][A-Za-z0-9][0-9]-?[A-Za-z][A-Za-z0-9][0-9]-?[A-Za-z]{2}[0-9]{2})\b"),
     pc(Kind::HEALTH_ID, r"(?i)\b(?:member|subscriber|insurance|policy)\s*(?:id)?\s*(?:no|number|#)?\.?[:\s]+([A-Z0-9\-]{6,15})\b"),
     pc(Kind::CASE_NO, r"(?i)\b(?:case|docket|matter)\s*(?:no|number|#)?\.?[:\s]+([A-Z0-9][A-Z0-9:\.\-]{3,19})\b"),
     p(Kind::CASE_NO, r"\b\d{1,2}:\d{2}-(?:cv|cr|cm|md|mc|mj|po|sw)-\d{2,6}(?:-[A-Z]{2,4})?\b"),
@@ -316,6 +328,8 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::IP => validators::ipv4_octets(raw),
         Kind::IPV6 => raw.parse::<std::net::Ipv6Addr>().is_ok(),
         Kind::CREDENTIAL => validators::credential_value(raw),
+        Kind::VIN => validators::vin(raw),
+        Kind::MEDICARE_MBI => validators::medicare_mbi(raw),
         Kind::CRYPTO_WALLET => validators::crypto_wallet(raw),
         Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::MRN | Kind::HEALTH_ID | Kind::CASE_NO => {
             validators::has_digit(raw)
@@ -589,6 +603,54 @@ mod validators {
     /// slip through.
     pub fn has_digit(raw: &str) -> bool {
         raw.chars().any(|c| c.is_ascii_digit())
+    }
+
+    /// ISO 3779 VIN check digit: transliterate (I/O/Q never appear), weight
+    /// positions [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2], sum mod 11; remainder
+    /// 10 is written 'X' and must equal position 9.
+    pub fn vin(raw: &str) -> bool {
+        if raw.len() != 17 { return false; }
+        let translit = |c: char| -> Option<u32> {
+            Some(match c {
+                '0'..='9' => c as u32 - '0' as u32,
+                'A' | 'J' => 1, 'B' | 'K' | 'S' => 2, 'C' | 'L' | 'T' => 3,
+                'D' | 'M' | 'U' => 4, 'E' | 'N' | 'V' => 5, 'F' | 'W' => 6,
+                'G' | 'P' | 'X' => 7, 'H' | 'Y' => 8, 'R' | 'Z' => 9,
+                _ => return None,
+            })
+        };
+        const W: [u32; 17] = [8, 7, 6, 5, 4, 3, 2, 10, 0, 9, 8, 7, 6, 5, 4, 3, 2];
+        let mut sum = 0u32;
+        for (i, c) in raw.chars().enumerate() {
+            let Some(v) = translit(c) else { return false; };
+            sum += v * W[i];
+        }
+        let check = match sum % 11 {
+            10 => 'X',
+            r => char::from_digit(r, 10).unwrap(),
+        };
+        raw.chars().nth(8) == Some(check)
+    }
+
+    /// Medicare Beneficiary Identifier (CMS spec): 11 chars, per-position
+    /// classes — digits at 1/4/7/10/11 (position 1 is 1–9), letters at
+    /// 2/5/8/9 drawn from A–Z minus S,L,O,I,B,Z, and positions 3/6 either.
+    pub fn medicare_mbi(raw: &str) -> bool {
+        let s: String = raw.chars().filter(|&c| c != '-').collect::<String>().to_ascii_uppercase();
+        if s.len() != 11 { return false; }
+        let letter_ok = |c: char| c.is_ascii_uppercase() && !matches!(c, 'S' | 'L' | 'O' | 'I' | 'B' | 'Z');
+        let b: Vec<char> = s.chars().collect();
+        ('1'..='9').contains(&b[0])
+            && letter_ok(b[1])
+            && (letter_ok(b[2]) || b[2].is_ascii_digit())
+            && b[3].is_ascii_digit()
+            && letter_ok(b[4])
+            && (letter_ok(b[5]) || b[5].is_ascii_digit())
+            && b[6].is_ascii_digit()
+            && letter_ok(b[7])
+            && letter_ok(b[8])
+            && b[9].is_ascii_digit()
+            && b[10].is_ascii_digit()
     }
 
     /// Shannon entropy over the character distribution, in bits/char.
@@ -1140,6 +1202,39 @@ mod tests {
     }
 
     #[test]
+    fn vin_check_digit_validated() {
+        // Canonical valid VIN (check digit '3' at position 9), unanchored.
+        let spans = run("totaled my civic, VIN 1HGCM82633A004352, need the claim letter");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::VIN));
+        assert_eq!(spans[0].raw, "1HGCM82633A004352");
+        assert_eq!(spans[0].confidence, 1.0);
+        // One-digit mutation breaks the ISO 3779 check digit.
+        assert!(run("ref 1HGCM82633A004353 in the export").is_empty());
+        // 17 chars containing I/O/Q can't be a VIN (charset excludes them).
+        assert!(run("order IOQ4567890123456 confirmed").is_empty());
+    }
+
+    #[test]
+    fn medicare_mbi_anchored_and_structured() {
+        for text in [
+            "patient medicare id: 1EG4-TE5-MK73 on file",
+            "MBI: 1EG4TE5MK73 per the claim",
+        ] {
+            let spans = run(text);
+            assert_eq!(spans.len(), 1, "{text}");
+            assert!(matches!(spans[0].kind, Kind::MEDICARE_MBI), "{text}: {spans:?}");
+        }
+        // S is an excluded letter — fails the CMS class for position 2; the
+        // generic HEALTH_ID anchor doesn't apply ("medicare" isn't in its
+        // anchor list), so the value passes through unaliased.
+        assert!(run("medicare id: 1SG4-TE5-MK73 noted")
+            .iter().all(|s| !matches!(s.kind, Kind::MEDICARE_MBI)));
+        // Unanchored MBIs are out of scope (documented recall tradeoff).
+        assert!(run("the code 1EG4TE5MK73 appears twice").is_empty());
+    }
+
+    #[test]
     fn credential_assignments_block_on_entropy() {
         // Real-looking credential assignments across common syntaxes → block.
         for text in [
@@ -1245,9 +1340,9 @@ mod tests {
             Kind::ADDRESS, Kind::MONEY, Kind::NAME, Kind::COMPANY, Kind::EMPID,
             Kind::CREDITCARD, Kind::IBAN, Kind::US_BANK, Kind::SWIFT_BIC, Kind::EIN,
             Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING, Kind::CREDENTIAL,
-            Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE,
+            Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE, Kind::VIN,
             Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR,
-            Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::CASE_NO,
+            Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::MEDICARE_MBI, Kind::CASE_NO,
             Kind::CRYPTO_WALLET, Kind::IPV6, Kind::MAC_ADDRESS, Kind::CUSTOM,
             Kind::PERSON_NER, Kind::ORG_NER, Kind::CODENAME_NER, Kind::LOCATION_NER,
             Kind::EMPID_NER,

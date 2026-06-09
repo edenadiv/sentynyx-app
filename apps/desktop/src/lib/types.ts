@@ -6,11 +6,11 @@ export type Kind =
   // Secrets
   | "JWT" | "PRIVATE_KEY" | "CONNECTION_STRING" | "CREDENTIAL"
   // Identity documents
-  | "DOB" | "PASSPORT" | "DRIVERS_LICENSE"
+  | "DOB" | "PASSPORT" | "DRIVERS_LICENSE" | "VIN"
   // National / government identifiers
   | "US_ITIN" | "CA_SIN" | "UK_NHS" | "UK_NINO" | "AU_TFN" | "AADHAAR"
   // Medical
-  | "MRN" | "NPI" | "DEA" | "HEALTH_ID"
+  | "MRN" | "NPI" | "DEA" | "HEALTH_ID" | "MEDICARE_MBI"
   // Legal
   | "CASE_NO"
   // Crypto / network
