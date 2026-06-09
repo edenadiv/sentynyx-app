@@ -14,9 +14,9 @@ Bring your own API keys (OpenAI · Anthropic · Google · xAI), run models fully
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](LICENSE) ![Platform: macOS](https://img.shields.io/badge/macOS-supported-black) ![Windows | Linux: from source](https://img.shields.io/badge/Windows%20%7C%20Linux-from%20source-lightgrey)
 
-<!-- demo GIF: record the guided tour (steps 1–5: detect → panel → transmit →
-     "Model saw") as a ~15s loop, save to docs/assets/demo.gif, then swap in:
-     <img src="docs/assets/demo.gif" width="720" alt="Sentynyx aliasing PII live before send" /> -->
+<img src="docs/assets/demo.gif" width="720" alt="Sentynyx guided tour: live PII detection, alias mapping, X-ray transmit, and the aliased wire payload" />
+
+<sub>The guided tour, recorded headlessly by [`e2e/record-demo.mjs`](apps/desktop/e2e/record-demo.mjs) — the same script that regression-tests every tour step in CI.</sub>
 
 </div>
 

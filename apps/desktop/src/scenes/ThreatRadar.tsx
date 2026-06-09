@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
-import { onAuditNew } from "../lib/ipc";
+import { isTauri, onAuditNew } from "../lib/ipc";
 
 type Ping = { angle: number; r: number; t: number; kind: string };
 
@@ -21,6 +21,7 @@ export function ThreatRadar({ redactionsDay, blocksWeek }: { redactionsDay: numb
   }, []);
 
   useEffect(() => {
+    if (!isTauri) return; // browser preview has no Tauri event bridge
     const unsub = onAuditNew(() => {
       setPings(p => [...p.slice(-8), {
         angle: Math.random() * 360, r: 10 + Math.random() * 45,

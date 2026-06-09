@@ -48,6 +48,7 @@ cargo build --features team-cloud  # commercial build must also compile (if you 
 
 cd apps/desktop
 pnpm build                       # tsc --noEmit + vite build
+pnpm e2e                         # headless walkthrough of the guided tour (Playwright)
 ```
 
 CI runs lints (clippy, eslint-security, tsc), the detection eval gate, and a bundle dry-run. The eval gate **fails the PR on a redaction-quality regression** — if you change a detector, run `cargo run --bin eval -- compare` and include the numbers.

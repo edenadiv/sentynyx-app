@@ -50,6 +50,7 @@ export interface GuidedTourProps {
   vendettaOpen: boolean;
   setVendettaOpen: (v: boolean) => void;
   devOpen: boolean;
+  setDevOpen: (v: boolean) => void;
   violationActive: boolean;
   messages: Message[];
   draft: string;
@@ -87,6 +88,11 @@ export function GuidedTour(p: GuidedTourProps) {
     }
     if (step.id === "transmit") {
       msgBaseline.current = p.messages.length;
+    }
+    if (step.id === "block" && p.devOpen) {
+      // The Dev Inspector is a full-screen overlay that would cover the
+      // composer the finale points at — close it on the user's behalf.
+      p.setDevOpen(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx]);

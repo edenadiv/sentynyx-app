@@ -8,6 +8,13 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **Guided-tour E2E + recorded demo**: `pnpm e2e` walks all 11 tour steps
+  headlessly against the browser preview (Playwright) asserting each advances
+  on its real event — including the SSN block — with zero page errors; runs
+  in CI (`ci-e2e.yml`). `pnpm record:demo` regenerates the README demo GIF
+  from the same flow. Fixed en route: the finale now auto-closes the Dev
+  Inspector so the composer is clickable, and the ThreatRadar no longer
+  throws in browser preview.
 - **Per-detection confidence scores**: every span carries a [0,1] confidence —
   checksum-validated kinds 1.0, distinctive structural formats 0.95, anchored
   heuristics 0.85, unanchored heuristics 0.75; NER spans carry GLiNER's own

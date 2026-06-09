@@ -540,6 +540,7 @@ export function App() {
         vendettaOpen={vendettaOpen}
         setVendettaOpen={setVendettaOpen}
         devOpen={devOpen}
+        setDevOpen={setDevOpen}
         violationActive={violation !== null}
         messages={messages}
         draft={draft}
