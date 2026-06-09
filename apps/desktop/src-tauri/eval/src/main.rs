@@ -161,7 +161,7 @@ async fn main() {
         for exp in &p.expected {
             // The zero-miss set mirrors vendetta::is_critical — every kind that
             // hard-blocks egress must never be missed by the detector.
-            if matches!(exp.kind.as_str(), "SSN" | "APIKEY" | "CREDITCARD" | "IBAN" | "PRIVATE_KEY" | "CONNECTION_STRING") {
+            if matches!(exp.kind.as_str(), "SSN" | "APIKEY" | "CREDITCARD" | "IBAN" | "PRIVATE_KEY" | "CONNECTION_STRING" | "CREDENTIAL") {
                 let found = merged.iter().any(|m|
                     m.kind.as_str() == exp.kind && m.raw == exp.raw);
                 if !found {

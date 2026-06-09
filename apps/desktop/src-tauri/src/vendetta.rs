@@ -14,7 +14,7 @@ pub enum Kind {
     // Payment / banking
     CREDITCARD, IBAN, US_BANK, SWIFT_BIC, EIN,
     // Secrets
-    JWT, PRIVATE_KEY, CONNECTION_STRING,
+    JWT, PRIVATE_KEY, CONNECTION_STRING, CREDENTIAL,
     // Identity documents
     DOB, PASSPORT, DRIVERS_LICENSE,
     // National / government identifiers (region packs)
@@ -40,6 +40,7 @@ impl Kind {
             Kind::CREDITCARD => "card", Kind::IBAN => "iban", Kind::US_BANK => "bank",
             Kind::SWIFT_BIC => "swift", Kind::EIN => "ein",
             Kind::JWT => "jwt", Kind::PRIVATE_KEY => "private-key", Kind::CONNECTION_STRING => "conn-string",
+            Kind::CREDENTIAL => "credential",
             Kind::DOB => "dob", Kind::PASSPORT => "passport", Kind::DRIVERS_LICENSE => "license",
             Kind::US_ITIN => "itin", Kind::CA_SIN => "sin", Kind::UK_NHS => "nhs",
             Kind::UK_NINO => "nino", Kind::AU_TFN => "tfn", Kind::AADHAAR => "aadhaar",
@@ -61,6 +62,7 @@ impl Kind {
             Kind::CREDITCARD => "CREDITCARD", Kind::IBAN => "IBAN", Kind::US_BANK => "US_BANK",
             Kind::SWIFT_BIC => "SWIFT_BIC", Kind::EIN => "EIN",
             Kind::JWT => "JWT", Kind::PRIVATE_KEY => "PRIVATE_KEY", Kind::CONNECTION_STRING => "CONNECTION_STRING",
+            Kind::CREDENTIAL => "CREDENTIAL",
             Kind::DOB => "DOB", Kind::PASSPORT => "PASSPORT", Kind::DRIVERS_LICENSE => "DRIVERS_LICENSE",
             Kind::US_ITIN => "US_ITIN", Kind::CA_SIN => "CA_SIN", Kind::UK_NHS => "UK_NHS",
             Kind::UK_NINO => "UK_NINO", Kind::AU_TFN => "AU_TFN", Kind::AADHAAR => "AADHAAR",
@@ -104,7 +106,8 @@ pub fn pack_for(kind: &Kind) -> &'static str {
         Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID => "medical",
         Kind::CASE_NO => "legal",
         Kind::CRYPTO_WALLET | Kind::IPV6 | Kind::MAC_ADDRESS | Kind::IP => "network",
-        Kind::APIKEY | Kind::JWT | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING => "secrets",
+        Kind::APIKEY | Kind::JWT | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING
+        | Kind::CREDENTIAL => "secrets",
         _ => "core",
     }
 }
@@ -131,9 +134,9 @@ pub fn confidence_for(kind: &Kind) -> f32 {
         Kind::EMAIL | Kind::URL | Kind::APIKEY | Kind::JWT | Kind::MAC_ADDRESS
         | Kind::EIN | Kind::US_ITIN => 0.95,
         // Context-anchored with a weak value check (presence of a digit, a
-        // plausible date, structural rules).
+        // plausible date, structural rules, entropy).
         Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::MRN
-        | Kind::HEALTH_ID | Kind::CASE_NO | Kind::UK_NINO => 0.85,
+        | Kind::HEALTH_ID | Kind::CASE_NO | Kind::UK_NINO | Kind::CREDENTIAL => 0.85,
         // Unanchored heuristics with real false-positive surface.
         Kind::PHONE | Kind::MONEY | Kind::ADDRESS | Kind::EMPID => 0.75,
         // NER/LLM kinds set their own at construction; this is only a fallback.
@@ -176,6 +179,13 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     pc(Kind::APIKEY, r#"(?i)\baws_?secret_?access_?key\b["']?\s*[:=]\s*["']?([A-Za-z0-9/+=]{40})\b"#),
     // A pasted Authorization header is a live credential regardless of scheme.
     pc(Kind::APIKEY, r"(?i)\bauthorization:\s*bearer\s+([A-Za-z0-9._~+/\-]{16,}=*)"),
+    // Generic credential assignments (gitleaks-style catch-all): a key name
+    // like password/secret/token followed by `:`/`=`/`=>` and a value token.
+    // The regex is deliberately broad; `validators::credential_value` does
+    // the real work (length, Shannon entropy, placeholder stoplist, env-var
+    // templating) so `password: changeme` and prose survive. The anchor list
+    // requires full words — bare "pass", "auth", or "key" never match.
+    pc(Kind::CREDENTIAL, r#"(?i)\b(?:pass(?:word|wd|phrase)|pwd|secret|token|api[_\-]?key|access[_\-]?key|client[_\-]?secret|auth[_\-]?token|credentials?)\b["']?\s*(?:=>|[:=])\s*["']?([^\s"'`,;]{8,})"#),
     // ---- 2. Anchored packs (alias) -----------------------------------------
     pc(Kind::US_BANK, r"(?i)\b(?:aba|routing|rtn)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b"),
     pc(Kind::US_BANK, r"(?i)\b(?:account|acct)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{6,17})\b"),
@@ -226,7 +236,7 @@ pub fn is_critical(k: &Kind) -> bool {
     matches!(
         k,
         Kind::SSN | Kind::APIKEY | Kind::CREDITCARD | Kind::IBAN | Kind::PRIVATE_KEY
-            | Kind::CONNECTION_STRING
+            | Kind::CONNECTION_STRING | Kind::CREDENTIAL
     )
 }
 
@@ -272,6 +282,11 @@ pub fn block_policy(kind: &Kind) -> Option<BlockPolicy> {
             class: "CRITICAL_SECRET",
             desc: "This connection string carries a live password in the URI. Rotate the credential and keep connection strings out of prompts — or switch to a local model.",
         }),
+        Kind::CREDENTIAL => Some(BlockPolicy {
+            rule: "Password or secret assignment in outbound payload",
+            class: "CRITICAL_SECRET",
+            desc: "This looks like a live credential (a password/secret/token assignment with a high-entropy value). Remove it or replace the value with a placeholder — or switch to a local model.",
+        }),
         _ => None,
     }
 }
@@ -300,6 +315,7 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::DOB => validators::date_plausible(raw),
         Kind::IP => validators::ipv4_octets(raw),
         Kind::IPV6 => raw.parse::<std::net::Ipv6Addr>().is_ok(),
+        Kind::CREDENTIAL => validators::credential_value(raw),
         Kind::CRYPTO_WALLET => validators::crypto_wallet(raw),
         Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::MRN | Kind::HEALTH_ID | Kind::CASE_NO => {
             validators::has_digit(raw)
@@ -573,6 +589,58 @@ mod validators {
     /// slip through.
     pub fn has_digit(raw: &str) -> bool {
         raw.chars().any(|c| c.is_ascii_digit())
+    }
+
+    /// Shannon entropy over the character distribution, in bits/char.
+    /// English prose words sit ≈2–2.8; generated secrets ≈3.5–4.5.
+    pub fn shannon_entropy(s: &str) -> f64 {
+        let mut counts: std::collections::HashMap<char, u32> = std::collections::HashMap::new();
+        let mut n = 0u32;
+        for c in s.chars() {
+            *counts.entry(c).or_insert(0) += 1;
+            n += 1;
+        }
+        if n == 0 { return 0.0; }
+        counts.values().map(|&c| {
+            let p = c as f64 / n as f64;
+            -p * p.log2()
+        }).sum()
+    }
+
+    /// Decides whether the value side of a `password=…`-style assignment is a
+    /// real credential or a placeholder. Three gates, in cheapness order:
+    ///
+    /// 1. Templating / placeholder shapes: env interpolation (`$VAR`, `${…}`,
+    ///    `{{…}}`, `%(…)`, `<value>`), literal keywords (true/false/null/…),
+    ///    and stoplist substrings ("changeme", "example", "password"…).
+    /// 2. Character mix: must contain a digit or symbol. Generated secrets
+    ///    virtually always do; the all-letters case is dominated by prose
+    ///    ("the secret: wonderful") and dictionary placeholders.
+    /// 3. Shannon entropy ≥ 3.0 bits/char — prose words score ≈2–2.8,
+    ///    generated secrets ≈3.5+. Known miss: doubled-word passwords like
+    ///    "hunter2hunter2" (H≈2.8) — the paranoid LLM layer is the backstop.
+    pub fn credential_value(raw: &str) -> bool {
+        if raw.len() < 8 { return false; }
+        let first = raw.chars().next().unwrap_or(' ');
+        if matches!(first, '$' | '%' | '<' | '{' | '[') || raw.contains("${") || raw.contains("{{") {
+            return false;
+        }
+        let lower = raw.to_ascii_lowercase();
+        if matches!(lower.as_str(), "true" | "false" | "null" | "none" | "nil" | "undefined") {
+            return false;
+        }
+        const PLACEHOLDER_SUBSTRINGS: &[&str] = &[
+            "password", "passwd", "passphrase", "changeme", "change-me", "change_me",
+            "example", "sample", "dummy", "placeholder", "redacted", "secret",
+            "your-", "your_", "xxxx", "****", "1234567", "abcdefg", "qwerty",
+        ];
+        if PLACEHOLDER_SUBSTRINGS.iter().any(|p| lower.contains(p)) {
+            return false;
+        }
+        if !raw.chars().any(|c| c.is_ascii_digit() || !c.is_alphanumeric()) {
+            return false;
+        }
+        shannon_entropy(raw) >= 3.0
     }
 }
 
@@ -1072,6 +1140,56 @@ mod tests {
     }
 
     #[test]
+    fn credential_assignments_block_on_entropy() {
+        // Real-looking credential assignments across common syntaxes → block.
+        for text in [
+            "set password=Tr0ub4dor&3xplor3 before deploy",
+            r#"config has "api_key": "9aB3xQ7mLpZ2kf4w" in it"#,
+            "export CLIENT_SECRET=wJalrXUtnFEMI7MDENGbPxRfiCY",
+            ":auth_token => 'mZ9qLp42xKv7wRt3'",
+        ] {
+            let spans = run(text);
+            assert!(
+                spans.iter().any(|s| matches!(s.kind, Kind::CREDENTIAL)),
+                "expected CREDENTIAL in {text:?}, got {spans:?}"
+            );
+            assert!(is_critical(&Kind::CREDENTIAL));
+        }
+        // Placeholders, templating, prose, and low entropy → no hit.
+        for text in [
+            "password: changeme then rotate",            // stoplist
+            "password=${DB_PASSWORD} from the env",      // templating
+            "the secret: remember to rotate quarterly",  // prose, low entropy
+            "token = <your-token-here> goes in .env",    // angle placeholder
+            "password: hunter2h", // 8 chars but low entropy, no digit pattern
+            "secret: wonderful",  // all-letters prose word
+        ] {
+            let spans = run(text);
+            assert!(
+                spans.iter().all(|s| !matches!(s.kind, Kind::CREDENTIAL)),
+                "false positive in {text:?}: {spans:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn credential_value_validator_gates() {
+        use super::validators::{credential_value, shannon_entropy};
+        // Entropy sanity: prose low, generated high.
+        assert!(shannon_entropy("remember") < 3.0);
+        assert!(shannon_entropy("wJalrXUtnFEMI7MDENGbPxRfiCY") > 3.5);
+        // Gate order: length, templating, keyword literals, stoplist, charmix.
+        assert!(!credential_value("short1!"));            // < 8
+        assert!(!credential_value("$ENV_VAR_NAME"));      // templating
+        assert!(!credential_value("{{ vault.password }}"));
+        assert!(!credential_value("undefined"));          // literal
+        assert!(!credential_value("MyPassword123!"));     // stoplist substring
+        assert!(!credential_value("Wonderful"));          // no digit/symbol
+        assert!(credential_value("Tr0ub4dor&3xplor3"));
+        assert!(credential_value("correct-horse-battery"));
+    }
+
+    #[test]
     fn national_ids_checksum_validated() {
         // CA SIN (Luhn)
         let spans = run("SIN: 046 454 286 on the application");
@@ -1126,7 +1244,7 @@ mod tests {
             Kind::EMAIL, Kind::PHONE, Kind::SSN, Kind::IP, Kind::APIKEY, Kind::URL,
             Kind::ADDRESS, Kind::MONEY, Kind::NAME, Kind::COMPANY, Kind::EMPID,
             Kind::CREDITCARD, Kind::IBAN, Kind::US_BANK, Kind::SWIFT_BIC, Kind::EIN,
-            Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING,
+            Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING, Kind::CREDENTIAL,
             Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE,
             Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR,
             Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::CASE_NO,
@@ -1156,6 +1274,7 @@ mod tests {
         assert_eq!(pack_for(&Kind::APIKEY), "secrets");
         assert_eq!(pack_for(&Kind::PRIVATE_KEY), "secrets");
         assert_eq!(pack_for(&Kind::CONNECTION_STRING), "secrets");
+        assert_eq!(pack_for(&Kind::CREDENTIAL), "secrets");
         assert!(!TOGGLEABLE_PACKS.contains(&"core"));
         assert!(!TOGGLEABLE_PACKS.contains(&"secrets"));
         // Every toggleable id is produced by at least one kind.

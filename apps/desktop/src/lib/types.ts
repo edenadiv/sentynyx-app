@@ -4,7 +4,7 @@ export type Kind =
   // Payment / banking
   | "CREDITCARD" | "IBAN" | "US_BANK" | "SWIFT_BIC" | "EIN"
   // Secrets
-  | "JWT" | "PRIVATE_KEY" | "CONNECTION_STRING"
+  | "JWT" | "PRIVATE_KEY" | "CONNECTION_STRING" | "CREDENTIAL"
   // Identity documents
   | "DOB" | "PASSPORT" | "DRIVERS_LICENSE"
   // National / government identifiers

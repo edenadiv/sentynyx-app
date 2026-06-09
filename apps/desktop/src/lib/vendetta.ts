@@ -24,6 +24,9 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "CONNECTION_STRING", re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|amqps?):\/\/[^\s:/@]+:[^\s/@]+@[^\s/]+/gi },
   { kind: "APIKEY", re: /\baws_?secret_?access_?key\b["']?\s*[:=]\s*["']?([A-Za-z0-9/+=]{40})\b/gi, cap: true },
   { kind: "APIKEY", re: /\bauthorization:\s*bearer\s+([A-Za-z0-9._~+/-]{16,}=*)/gi, cap: true },
+  // Generic credential assignments — broad anchor, the real decision lives in
+  // credentialValue() (entropy + stoplist), exactly like the Rust validator.
+  { kind: "CREDENTIAL", re: /\b(?:pass(?:word|wd|phrase)|pwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|auth[_-]?token|credentials?)\b["']?\s*(?:=>|[:=])\s*["']?([^\s"'`,;]{8,})/gi, cap: true },
   // ---- 2. Anchored packs ----
   { kind: "US_BANK", re: /\b(?:aba|routing|rtn)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b/gi, cap: true },
   { kind: "US_BANK", re: /\b(?:account|acct)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{6,17})\b/gi, cap: true },
@@ -67,6 +70,7 @@ export const LABELS: Record<Kind, string> = {
   NAME: "person", COMPANY: "entity", EMPID: "employee-id",
   CREDITCARD: "card", IBAN: "iban", US_BANK: "bank", SWIFT_BIC: "swift", EIN: "ein",
   JWT: "jwt", PRIVATE_KEY: "private-key", CONNECTION_STRING: "conn-string",
+  CREDENTIAL: "credential",
   DOB: "dob", PASSPORT: "passport", DRIVERS_LICENSE: "license",
   US_ITIN: "itin", CA_SIN: "sin", UK_NHS: "nhs", UK_NINO: "nino",
   AU_TFN: "tfn", AADHAAR: "aadhaar",
@@ -112,6 +116,11 @@ export const CRITICAL: Partial<Record<Kind, { name: string; class: string; desc:
     name: "Database credentials in outbound payload",
     class: "CRITICAL_SECRET",
     desc: "This connection string carries a live password in the URI. Rotate the credential and keep connection strings out of prompts — or switch to a local model.",
+  },
+  CREDENTIAL: {
+    name: "Password or secret assignment in outbound payload",
+    class: "CRITICAL_SECRET",
+    desc: "This looks like a live credential (a password/secret/token assignment with a high-entropy value). Remove it or replace the value with a placeholder — or switch to a local model.",
   },
 };
 
@@ -398,6 +407,38 @@ function cryptoWallet(raw: string): boolean {
 
 const hasDigit = (raw: string) => /\d/.test(raw);
 
+/** Shannon entropy in bits/char — prose ≈2–2.8, generated secrets ≈3.5+. */
+function shannonEntropy(s: string): number {
+  const counts = new Map<string, number>();
+  for (const c of s) counts.set(c, (counts.get(c) ?? 0) + 1);
+  const n = [...s].length;
+  if (n === 0) return 0;
+  let h = 0;
+  for (const c of counts.values()) {
+    const p = c / n;
+    h -= p * Math.log2(p);
+  }
+  return h;
+}
+
+const CREDENTIAL_PLACEHOLDERS = [
+  "password", "passwd", "passphrase", "changeme", "change-me", "change_me",
+  "example", "sample", "dummy", "placeholder", "redacted", "secret",
+  "your-", "your_", "xxxx", "****", "1234567", "abcdefg", "qwerty",
+];
+
+/** Mirror of validators::credential_value — see vendetta.rs for the rationale. */
+function credentialValue(raw: string): boolean {
+  if (raw.length < 8) return false;
+  const first = raw[0];
+  if ("$%<{[".includes(first) || raw.includes("${") || raw.includes("{{")) return false;
+  const lower = raw.toLowerCase();
+  if (["true", "false", "null", "none", "nil", "undefined"].includes(lower)) return false;
+  if (CREDENTIAL_PLACEHOLDERS.some(p => lower.includes(p))) return false;
+  if (!/[\d\W_]/.test(raw)) return false;
+  return shannonEntropy(raw) >= 3.0;
+}
+
 // ---------------------------------------------------------------------------
 // Detection packs (mirror of vendetta::pack_for). `core` and `secrets` are
 // the safety floor and cannot be disabled; the rest are user-toggleable via
@@ -428,6 +469,7 @@ export function packFor(kind: Kind): string {
     case "CRYPTO_WALLET": case "IPV6": case "MAC_ADDRESS": case "IP":
       return "network";
     case "APIKEY": case "JWT": case "PRIVATE_KEY": case "CONNECTION_STRING":
+    case "CREDENTIAL":
       return "secrets";
     default:
       return "core";
@@ -453,7 +495,7 @@ export function confidenceFor(kind: Kind): number {
     case "EIN": case "US_ITIN":
       return 0.95;
     case "DOB": case "PASSPORT": case "DRIVERS_LICENSE": case "MRN":
-    case "HEALTH_ID": case "CASE_NO": case "UK_NINO":
+    case "HEALTH_ID": case "CASE_NO": case "UK_NINO": case "CREDENTIAL":
       return 0.85;
     case "PHONE": case "MONEY": case "ADDRESS": case "EMPID":
       return 0.75;
@@ -479,6 +521,7 @@ export function validate(kind: Kind, raw: string): boolean {
     case "IP": return ipv4Octets(raw);
     case "IPV6": return ipv6Parses(raw);
     case "CRYPTO_WALLET": return cryptoWallet(raw);
+    case "CREDENTIAL": return credentialValue(raw);
     case "PASSPORT":
     case "DRIVERS_LICENSE":
     case "MRN":

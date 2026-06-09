@@ -141,4 +141,10 @@ jobs:
       - name: cargo check
         working-directory: apps/desktop/src-tauri
         shell: pwsh
+        env:
+          # llama.cpp's vulkan-shaders-gen sub-build trips MSVC C1041 when
+          # parallel cl.exe processes share one scratch .pdb; /FS routes PDB
+          # writes through mspdbsrv. Harmless for every other MSVC compile.
+          CFLAGS: /FS
+          CXXFLAGS: /FS
         run: cargo check --all-targets

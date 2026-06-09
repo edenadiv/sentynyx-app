@@ -399,7 +399,7 @@ function PacksSection() {
         <div style={{ fontSize: 11, color: "#9ba3b4", lineHeight: 1.5, marginBottom: 10 }}>
           Switch off categories you never handle to reduce noise. Core PII
           (emails, phones, SSNs…) and secrets (API keys, private keys,
-          connection strings) are the safety floor and stay on.
+          passwords, connection strings) are the safety floor and stay on.
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           {TOGGLEABLE_PACKS.map(p => (

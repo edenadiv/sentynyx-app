@@ -125,13 +125,15 @@ button { font-family:inherit; color:inherit; }
 }
 
 /* Secrets — magenta */
-.vend-hit.vend-JWT, .vend-hit.vend-PRIVATE_KEY, .vend-hit.vend-CONNECTION_STRING {
+.vend-hit.vend-JWT, .vend-hit.vend-PRIVATE_KEY, .vend-hit.vend-CONNECTION_STRING,
+.vend-hit.vend-CREDENTIAL {
   background: rgba(255, 94, 196, 0.20); color: #ff5ec4;
   border-bottom-color: rgba(255, 94, 196, 0.6);
   box-shadow: 0 0 6px rgba(255, 94, 196, 0.25);
   text-shadow: 0 0 10px rgba(255, 94, 196, 0.5);
 }
-.vend-hit.vend-JWT::before, .vend-hit.vend-PRIVATE_KEY::before, .vend-hit.vend-CONNECTION_STRING::before {
+.vend-hit.vend-JWT::before, .vend-hit.vend-PRIVATE_KEY::before, .vend-hit.vend-CONNECTION_STRING::before,
+.vend-hit.vend-CREDENTIAL::before {
   background: linear-gradient(90deg, transparent, rgba(255, 94, 196, 0.4), transparent);
 }
 

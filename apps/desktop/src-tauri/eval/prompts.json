@@ -1,211 +1,1771 @@
 {
-  "version": 2,
-  "prompts": [
-    {"id":"p001","text":"Email alice@acme.com about the meeting","expected":[{"kind":"EMAIL","raw":"alice@acme.com"}]},
-    {"id":"p002","text":"Call 555-123-4567 tomorrow","expected":[{"kind":"PHONE","raw":"555-123-4567"}]},
-    {"id":"p003","text":"SSN 123-45-6789 is on file","expected":[{"kind":"SSN","raw":"123-45-6789"}]},
-    {"id":"p004","text":"Use API key sk-demo-9f8d7c6b5a4e3d2c1","expected":[{"kind":"APIKEY","raw":"sk-demo-9f8d7c6b5a4e3d2c1"}]},
-    {"id":"p005","text":"Server at 192.168.24.17","expected":[{"kind":"IP","raw":"192.168.24.17"}]},
-    {"id":"p006","text":"Revenue of $42,500,000 projected","expected":[{"kind":"MONEY","raw":"$42,500,000"}]},
-    {"id":"p007","text":"cc Sarah Chen on the thread","expected":[{"kind":"PERSON_NER","raw":"Sarah Chen"}],"semantic_only":true},
-    {"id":"p008","text":"Project Helios launch date moved","expected":[{"kind":"CODENAME_NER","raw":"Project Helios"}],"semantic_only":true},
-    {"id":"p009","text":"EMP-47291 to lead follow-up","expected":[{"kind":"EMPID","raw":"EMP-47291"}]},
-    {"id":"p010","text":"Office at 123 Main Street next week","expected":[{"kind":"ADDRESS","raw":"123 Main Street"}]},
-    {"id":"p011","text":"Visit https://internal.example.co/prod today","expected":[{"kind":"URL","raw":"https://internal.example.co/prod"}]},
-    {"id":"p012","text":"Memo for Sarah Chen at sarah.chen@example-corp.com about Q4","expected":[{"kind":"PERSON_NER","raw":"Sarah Chen"},{"kind":"EMAIL","raw":"sarah.chen@example-corp.com"}]},
-    {"id":"p013","text":"Draft a note to Project Orion leads and cc Marcus Rodriguez","expected":[{"kind":"CODENAME_NER","raw":"Project Orion"},{"kind":"PERSON_NER","raw":"Marcus Rodriguez"}],"semantic_only":true},
-    {"id":"p014","text":"Rotate sk-live-abcdef0123456789abcdef and email dev@company.com","expected":[{"kind":"APIKEY","raw":"sk-live-abcdef0123456789abcdef"},{"kind":"EMAIL","raw":"dev@company.com"}]},
-    {"id":"p015","text":"Send the contract to Priya Shah at Northwind Capital","expected":[{"kind":"PERSON_NER","raw":"Priya Shah"},{"kind":"ORG_NER","raw":"Northwind Capital"}],"semantic_only":true},
-    {"id":"p016","text":"SSN 234-56-7890 belongs to EMP-12345","expected":[{"kind":"SSN","raw":"234-56-7890"},{"kind":"EMPID","raw":"EMP-12345"}]},
-    {"id":"p017","text":"Phone +1 415 555 0100 works after 3pm PT","expected":[{"kind":"PHONE","raw":"1 415 555 0100"}],"note":"no word boundary exists before '+', so the span starts at the first digit"},
-    {"id":"p018","text":"Revenue projected at $5,000,000 this quarter per Northwind Capital","expected":[{"kind":"MONEY","raw":"$5,000,000"},{"kind":"ORG_NER","raw":"Northwind Capital"}]},
-    {"id":"p019","text":"James Patterson will present from 10 Downing Street","expected":[{"kind":"PERSON_NER","raw":"James Patterson"},{"kind":"ADDRESS","raw":"10 Downing Street"}]},
-    {"id":"p020","text":"Anna Müller flagged an issue with the Atlas Holdings deal","expected":[{"kind":"PERSON_NER","raw":"Anna Müller"},{"kind":"ORG_NER","raw":"Atlas Holdings"}],"semantic_only":true},
-    {"id":"p021","text":"My direct report Jamie Torres asked for feedback","expected":[{"kind":"PERSON_NER","raw":"Jamie Torres"}],"semantic_only":true},
-    {"id":"p022","text":"Our new CMO Taylor Harrison joins next week","expected":[{"kind":"PERSON_NER","raw":"Taylor Harrison"}],"semantic_only":true},
-    {"id":"p023","text":"Manager Diego Fernandez approved the PR","expected":[{"kind":"PERSON_NER","raw":"Diego Fernandez"}],"semantic_only":true},
-    {"id":"p024","text":"Coordinate with Anika Raj on the rollout","expected":[{"kind":"PERSON_NER","raw":"Anika Raj"}],"semantic_only":true},
-    {"id":"p025","text":"Flag to Kai Nakamura before publishing","expected":[{"kind":"PERSON_NER","raw":"Kai Nakamura"}],"semantic_only":true},
-    {"id":"p026","text":"Acme Robotics signed the partnership letter","expected":[{"kind":"ORG_NER","raw":"Acme Robotics"}],"semantic_only":true},
-    {"id":"p027","text":"Zephyr Analytics handles our telemetry","expected":[{"kind":"ORG_NER","raw":"Zephyr Analytics"}],"semantic_only":true},
-    {"id":"p028","text":"The Sapphire Initiative kicks off in May","expected":[{"kind":"CODENAME_NER","raw":"Sapphire Initiative"}],"semantic_only":true},
-    {"id":"p029","text":"Rollout of Project Obsidian is delayed","expected":[{"kind":"CODENAME_NER","raw":"Project Obsidian"}],"semantic_only":true},
-    {"id":"p030","text":"Amsterdam office will host the offsite","expected":[{"kind":"LOCATION_NER","raw":"Amsterdam"}],"semantic_only":true},
-    {"id":"p031","text":"Relocate the workshop to Berlin next quarter","expected":[{"kind":"LOCATION_NER","raw":"Berlin"}],"semantic_only":true},
-    {"id":"p032","text":"Employee badge ID A-77821 was reported lost","expected":[{"kind":"EMPID_NER","raw":"A-77821"}],"semantic_only":true},
-    {"id":"p033","text":"Janelle Park mentioned layoffs coming in Q2","expected":[{"kind":"PERSON_NER","raw":"Janelle Park"}],"semantic_only":true},
-    {"id":"p034","text":"Litigation risk around the Carlton deal","expected":[],"semantic_only":true,"note":"semantic-only-llm"},
-    {"id":"p035","text":"The legal hold touches Meridian Pharma files","expected":[{"kind":"ORG_NER","raw":"Meridian Pharma"}],"semantic_only":true},
-    {"id":"p036","text":"Olga Petrova will review from Prague","expected":[{"kind":"PERSON_NER","raw":"Olga Petrova"},{"kind":"LOCATION_NER","raw":"Prague"}],"semantic_only":true},
-    {"id":"p037","text":"Schedule 1:1 with Rohan Desai on Thursday","expected":[{"kind":"PERSON_NER","raw":"Rohan Desai"}],"semantic_only":true},
-    {"id":"p038","text":"Expanding Blackbird Initiative scope","expected":[{"kind":"CODENAME_NER","raw":"Blackbird Initiative"}],"semantic_only":true},
-    {"id":"p039","text":"HR dispute involves Maya Chen directly","expected":[{"kind":"PERSON_NER","raw":"Maya Chen"}],"semantic_only":true},
-    {"id":"p040","text":"Cascade Biotics needs the compliance docs by Friday","expected":[{"kind":"ORG_NER","raw":"Cascade Biotics"}],"semantic_only":true},
-    {"id":"p041","text":"Nora Linden to draft the mediation memo","expected":[{"kind":"PERSON_NER","raw":"Nora Linden"}],"semantic_only":true},
-    {"id":"p042","text":"Tokyo team handles the launch","expected":[{"kind":"LOCATION_NER","raw":"Tokyo"}],"semantic_only":true},
-    {"id":"p043","text":"Fired employee Elliot Grey filed a complaint","expected":[{"kind":"PERSON_NER","raw":"Elliot Grey"}],"semantic_only":true},
-    {"id":"p044","text":"Pivot decision for Quantum Harvest coming Friday","expected":[{"kind":"CODENAME_NER","raw":"Quantum Harvest"}],"semantic_only":true},
-    {"id":"p045","text":"Contractor Simone Laurent accessed prod","expected":[{"kind":"PERSON_NER","raw":"Simone Laurent"}],"semantic_only":true},
-    {"id":"p046","text":"Reassignment for Farida Aziz goes live Monday","expected":[{"kind":"PERSON_NER","raw":"Farida Aziz"}],"semantic_only":true},
-    {"id":"p047","text":"Singapore pilot is behind schedule","expected":[{"kind":"LOCATION_NER","raw":"Singapore"}],"semantic_only":true},
-    {"id":"p048","text":"Terra Systems filed for bankruptcy protection","expected":[{"kind":"ORG_NER","raw":"Terra Systems"}],"semantic_only":true},
-    {"id":"p049","text":"Clearance revoked for Owen Brooks","expected":[{"kind":"PERSON_NER","raw":"Owen Brooks"}],"semantic_only":true},
-    {"id":"p050","text":"Lisbon engineering team to lead the migration","expected":[{"kind":"LOCATION_NER","raw":"Lisbon"}],"semantic_only":true},
-    {"id":"b001","text":"The quick brown fox jumps over the lazy dog","expected":[]},
-    {"id":"b002","text":"I love this new coffee blend","expected":[]},
-    {"id":"b003","text":"Please summarize the last three chapters","expected":[]},
-    {"id":"b004","text":"Running tests locally now","expected":[]},
-    {"id":"b005","text":"The weather is nice today","expected":[]},
-    {"id":"b006","text":"Can you recommend a good book","expected":[]},
-    {"id":"b007","text":"This is a benign sentence with no PII","expected":[]},
-    {"id":"b008","text":"Rebase the branch and push","expected":[]},
-    {"id":"b009","text":"The API was down for three minutes","expected":[]},
-    {"id":"b010","text":"Draft an engaging newsletter intro","expected":[]},
-    {"id":"b011","text":"Fix the typo in the README","expected":[]},
-    {"id":"b012","text":"Document the new endpoint please","expected":[]},
-    {"id":"b013","text":"Tests should be idempotent","expected":[]},
-    {"id":"b014","text":"Improve the error messages in the validator","expected":[]},
-    {"id":"b015","text":"Refactor the polling loop to use backoff","expected":[]},
-    {"id":"b016","text":"Add caching to the query layer","expected":[]},
-    {"id":"b017","text":"Switch to a newer TypeScript version","expected":[]},
-    {"id":"b018","text":"Rollback the last deploy if needed","expected":[]},
-    {"id":"b019","text":"Review the PR when you have a minute","expected":[]},
-    {"id":"b020","text":"Plan the roadmap for next quarter","expected":[]},
-    {"id":"a001","text":"Not an email: alice at acme dot com","expected":[]},
-    {"id":"a002","text":"Fake phone literal in docs: 555-1212 (too short)","expected":[]},
-    {"id":"a003","text":"String looks like SSN format 12-345-6789","expected":[]},
-    {"id":"a004","text":"API key pattern in logs: sk-EXAMPLE (placeholder; regex requires >=10 trailing chars so this should NOT match)","expected":[]},
-    {"id":"a005","text":"IP-like string 999.999.999.999 is invalid","expected":[],"note":"octet validator must reject out-of-range IPs"},
-    {"id":"a006","text":"Pretend-codename 'SunriseCo' not in whitelist","expected":[{"kind":"ORG_NER","raw":"SunriseCo"}],"semantic_only":true},
-    {"id":"a007","text":"Fake address literal 00 Nowhere Street (edge)","expected":[{"kind":"ADDRESS","raw":"00 Nowhere Street"}],"note":"address-shaped text matches by design; aliasing a fake address is harmless"},
-    {"id":"a008","text":"Money-shaped text $42 (too small for money regex)","expected":[]},
-    {"id":"a009","text":"Plain first name Sarah alone in a sentence","expected":[]},
-    {"id":"a010","text":"URL fragment without scheme: example.com/foo","expected":[]},
-
-    {"id":"c001","text":"Staffing alert: Project Atlas-7 is over budget","expected":[{"kind":"CODENAME_NER","raw":"Project Atlas-7"}],"semantic_only":true},
-    {"id":"c002","text":"Confidential: Project Nightshade ships next Q","expected":[{"kind":"CODENAME_NER","raw":"Project Nightshade"}],"semantic_only":true},
-    {"id":"c003","text":"Initiative Falcon-Redux milestones are behind","expected":[{"kind":"CODENAME_NER","raw":"Initiative Falcon-Redux"}],"semantic_only":true},
-    {"id":"c004","text":"Forward to the Helios engineering channel please","expected":[{"kind":"CODENAME_NER","raw":"Helios"}],"semantic_only":true},
-    {"id":"c005","text":"Program Zephyr-Gamma requires legal sign-off","expected":[{"kind":"CODENAME_NER","raw":"Program Zephyr-Gamma"}],"semantic_only":true},
-
-    {"id":"e001","text":"Onboard employee E-00-8471 by Friday","expected":[{"kind":"EMPID_NER","raw":"E-00-8471"}],"semantic_only":true},
-    {"id":"e002","text":"Payroll row HR.7721.BadgeID failed the import","expected":[{"kind":"EMPID_NER","raw":"HR.7721.BadgeID"}],"semantic_only":true},
-    {"id":"e003","text":"Terminate badge 88-X-77210 at EOB","expected":[{"kind":"EMPID_NER","raw":"88-X-77210"}],"semantic_only":true},
-
-    {"id":"l001","text":"Meet Taylor Cho at the Shibuya office tomorrow","expected":[{"kind":"PERSON_NER","raw":"Taylor Cho"},{"kind":"LOCATION_NER","raw":"Shibuya"}],"semantic_only":true},
-    {"id":"l002","text":"Kumiko Tanaka is moving back to Osaka next month","expected":[{"kind":"PERSON_NER","raw":"Kumiko Tanaka"},{"kind":"LOCATION_NER","raw":"Osaka"}],"semantic_only":true},
-    {"id":"l003","text":"Finance team is clustered in the London office","expected":[{"kind":"LOCATION_NER","raw":"London"}],"semantic_only":true},
-    {"id":"l004","text":"Manufacturing moved from Shenzhen to Guadalajara","expected":[{"kind":"LOCATION_NER","raw":"Shenzhen"},{"kind":"LOCATION_NER","raw":"Guadalajara"}],"semantic_only":true},
-
-    {"id":"o001","text":"BrightSky Ventures signed the term sheet today","expected":[{"kind":"ORG_NER","raw":"BrightSky Ventures"}],"semantic_only":true},
-    {"id":"o002","text":"Contract with Polaris Technologies finalizes Friday","expected":[{"kind":"ORG_NER","raw":"Polaris Technologies"}],"semantic_only":true},
-    {"id":"o003","text":"Acme RoboLabs replied to our partnership pitch","expected":[{"kind":"ORG_NER","raw":"Acme RoboLabs"}],"semantic_only":true},
-    {"id":"o004","text":"The team at Heliograph Media reached out for a demo","expected":[{"kind":"ORG_NER","raw":"Heliograph Media"}],"semantic_only":true},
-    {"id":"o005","text":"Forward this to whichever partner at Northwood Associates handles onboarding","expected":[{"kind":"ORG_NER","raw":"Northwood Associates"}],"semantic_only":true},
-
-    {"id":"p201","text":"Loop in Kenji Williams when the PR is ready for review","expected":[{"kind":"PERSON_NER","raw":"Kenji Williams"}],"semantic_only":true},
-    {"id":"p202","text":"Pair on the design system with Amara Okafor next sprint","expected":[{"kind":"PERSON_NER","raw":"Amara Okafor"}],"semantic_only":true},
-    {"id":"p203","text":"Rafael Duarte joins as staff engineer in June","expected":[{"kind":"PERSON_NER","raw":"Rafael Duarte"}],"semantic_only":true},
-    {"id":"p204","text":"Schedule a 1:1 with Olga Pavlenko for Thursday","expected":[{"kind":"PERSON_NER","raw":"Olga Pavlenko"}],"semantic_only":true},
-    {"id":"p205","text":"We should thank Ifeoma Nwosu for the code review","expected":[{"kind":"PERSON_NER","raw":"Ifeoma Nwosu"}],"semantic_only":true},
-    {"id":"p206","text":"Kazuki Mori is presenting at the engineering all-hands","expected":[{"kind":"PERSON_NER","raw":"Kazuki Mori"}],"semantic_only":true},
-
-    {"id":"m001","text":"Multi-signal: email rafi@brightsky.vc about Project Orion numbers","expected":[{"kind":"EMAIL","raw":"rafi@brightsky.vc"},{"kind":"CODENAME_NER","raw":"Project Orion"}]},
-    {"id":"m002","text":"Text Lin Huang at +1 408 555 2019 before the demo","expected":[{"kind":"PERSON_NER","raw":"Lin Huang"},{"kind":"PHONE","raw":"1 408 555 2019"}],"semantic_only":true},
-    {"id":"m003","text":"Wire the $2,500,000 tranche to Kaveh Mostafavi at Sequoia-East","expected":[{"kind":"MONEY","raw":"$2,500,000"},{"kind":"PERSON_NER","raw":"Kaveh Mostafavi"},{"kind":"ORG_NER","raw":"Sequoia-East"}],"semantic_only":true},
-
-    {"id":"cc001","text":"Card on file: 4111 1111 1111 1111","expected":[{"kind":"CREDITCARD","raw":"4111 1111 1111 1111"}]},
-    {"id":"cc002","text":"charge 5500-0000-0000-0004 instead","expected":[{"kind":"CREDITCARD","raw":"5500-0000-0000-0004"}]},
-    {"id":"cc003","text":"AmEx 378282246310005 expires 09/27","expected":[{"kind":"CREDITCARD","raw":"378282246310005"}]},
-    {"id":"cc004","text":"order ref 4111 1111 1111 1112 shipped","expected":[],"note":"Luhn fail — must not match"},
-    {"id":"cc005","text":"tracking 1234 5678 9012 3456 was scanned overnight","expected":[],"note":"bad IIN + Luhn fail"},
-    {"id":"cc006","text":"account no: 4242424242424242 on the invoice","expected":[{"kind":"CREDITCARD","raw":"4242424242424242"}],"note":"span tie vs US_BANK must resolve to the blocking kind"},
-
-    {"id":"ib001","text":"wire to DE89 3704 0044 0532 0130 00 today","expected":[{"kind":"IBAN","raw":"DE89 3704 0044 0532 0130 00"}]},
-    {"id":"ib002","text":"GB82WEST12345698765432 is the new account","expected":[{"kind":"IBAN","raw":"GB82WEST12345698765432"}]},
-    {"id":"ib003","text":"ref DE89 3704 0044 0532 0130 01 noted","expected":[],"note":"mod-97 fail"},
-    {"id":"ib004","text":"ref US12 3456 7890 1234 5678 case","expected":[],"note":"US is not an IBAN country"},
-
-    {"id":"bk001","text":"routing number: 021000021 for the wire","expected":[{"kind":"US_BANK","raw":"021000021"}]},
-    {"id":"bk002","text":"acct #: 000123456789 needs review","expected":[{"kind":"US_BANK","raw":"000123456789"}]},
-    {"id":"bk003","text":"routing number: 123456789 fails the checksum","expected":[],"note":"ABA checksum fail"},
-    {"id":"bk004","text":"the code 021000021 appears in the export","expected":[],"note":"no anchor — bare 9-digit runs stay undetected by design"},
-
-    {"id":"sw001","text":"wire code swift: DEUTDEFF for the transfer","expected":[{"kind":"SWIFT_BIC","raw":"DEUTDEFF"}]},
-    {"id":"sw002","text":"BIC code BOFAUS3NXXX on the invoice","expected":[{"kind":"SWIFT_BIC","raw":"BOFAUS3NXXX"}]},
-    {"id":"sw003","text":"Swift is a programming language, not a bank code","expected":[]},
-
-    {"id":"ein001","text":"their tax id 84-1234567 is on the W-9","expected":[{"kind":"EIN","raw":"84-1234567"}]},
-    {"id":"ein002","text":"part 12-3456789 of the doc","expected":[],"note":"no anchor"},
-
-    {"id":"sk001","text":"deploy key github_pat_11ABCDEFG0123456789abcdefgh","expected":[{"kind":"APIKEY","raw":"github_pat_11ABCDEFG0123456789abcdefgh"}]},
-    {"id":"sk002","text":"ci uses glpat-AbCdEfGhIjKlMnOpQrSt","expected":[{"kind":"APIKEY","raw":"glpat-AbCdEfGhIjKlMnOpQrSt"}]},
-    {"id":"sk003","text":"maps key AIzaSyA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1v","expected":[{"kind":"APIKEY","raw":"AIzaSyA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1v"}]},
-    {"id":"sk004","text":"stripe sk_test_4eC39HqLyjWDarjt","expected":[{"kind":"APIKEY","raw":"sk_test_4eC39HqLyjWDarjt"}],"note":"test prefix + sub-24-char body so the corpus never trips secret scanners"},
-    {"id":"sk005","text":"ghp_short is not a token","expected":[]},
-    {"id":"sk006","text":"aws_secret_access_key = bPxRfiCYEXAMPLEKEY12wJalrXUtnFEMIK7MDENG","expected":[{"kind":"APIKEY","raw":"bPxRfiCYEXAMPLEKEY12wJalrXUtnFEMIK7MDENG"}],"note":"anchored 40-char AWS secret (scrambled non-real example value)"},
-    {"id":"sk007","text":"curl -H 'Authorization: Bearer xTokenAbCdEf123456.789'","expected":[{"kind":"APIKEY","raw":"xTokenAbCdEf123456.789"}]},
-    {"id":"sk008","text":"set authorization policy for the bearer of this document","expected":[],"note":"no token after the words — must not anchor on prose"},
-
-    {"id":"jwt001","text":"bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c","expected":[{"kind":"JWT","raw":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c"}]},
-    {"id":"jwt002","text":"open data.tar.gz attached here","expected":[]},
-
-    {"id":"pk001","text":"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA7\n-----END RSA PRIVATE KEY-----","expected":[{"kind":"PRIVATE_KEY","raw":"-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA7\n-----END RSA PRIVATE KEY-----"}]},
-    {"id":"pk002","text":"pasted -----BEGIN OPENSSH PRIVATE KEY----- and stopped","expected":[{"kind":"PRIVATE_KEY","raw":"-----BEGIN OPENSSH PRIVATE KEY-----"}]},
-    {"id":"pk003","text":"my private key is in 1Password","expected":[]},
-
-    {"id":"id001","text":"DOB: 04/12/1985 per the intake form","expected":[{"kind":"DOB","raw":"04/12/1985"}]},
-    {"id":"id002","text":"patient date of birth 1990-07-22","expected":[{"kind":"DOB","raw":"1990-07-22"}]},
-    {"id":"id003","text":"born on March 3, 1978 per the intake file","expected":[{"kind":"DOB","raw":"March 3, 1978"}]},
-    {"id":"id004","text":"DOB: 13/45/9999 is obviously invalid","expected":[],"note":"date plausibility fail"},
-    {"id":"id005","text":"the 04/12/1985 build was archived","expected":[],"note":"no anchor"},
-
-    {"id":"pp001","text":"passport no: N1234567 expires 2031","expected":[{"kind":"PASSPORT","raw":"N1234567"}]},
-    {"id":"pp002","text":"passport details: attached below","expected":[],"note":"captured word has no digit"},
-
-    {"id":"dl001","text":"driver's license no: D1234567 on file","expected":[{"kind":"DRIVERS_LICENSE","raw":"D1234567"}]},
-    {"id":"dl002","text":"DL renewal is pending review","expected":[],"note":"anchored capture has no digit"},
-
-    {"id":"md001","text":"MRN: 00482931 admitted Tuesday","expected":[{"kind":"MRN","raw":"00482931"}]},
-    {"id":"md002","text":"provider NPI: 1234567893 accepted","expected":[{"kind":"NPI","raw":"1234567893"}],"note":"tie vs PHONE must resolve to NPI"},
-    {"id":"md003","text":"prescriber dea no: BB1388568 verified","expected":[{"kind":"DEA","raw":"BB1388568"}]},
-    {"id":"md004","text":"member ID: XR4-882-991 active","expected":[{"kind":"HEALTH_ID","raw":"XR4-882-991"}]},
-    {"id":"md005","text":"the DEA investigation continues","expected":[{"kind":"ORG_NER","raw":"DEA"}],"semantic_only":true,"note":"the agency is a legit NER org; the point is no DEA-number span without a number"},
-    {"id":"md006","text":"MRN: pending review","expected":[],"note":"captured word has no digit"},
-
-    {"id":"lg001","text":"Case No. 4:22-cv-00321-KAW is on the docket","expected":[{"kind":"CASE_NO","raw":"4:22-cv-00321-KAW"}]},
-    {"id":"lg002","text":"see 1:21-cv-04567 for the ruling","expected":[{"kind":"CASE_NO","raw":"1:21-cv-04567"}]},
-    {"id":"lg003","text":"in case you missed it, ship Friday","expected":[]},
-    {"id":"lg004","text":"matter: urgent escalation","expected":[]},
-
-    {"id":"cw001","text":"send to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e","expected":[{"kind":"CRYPTO_WALLET","raw":"0x742d35Cc6634C0532925a3b844Bc454e4438f44e"}]},
-    {"id":"cw002","text":"btc 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa today","expected":[{"kind":"CRYPTO_WALLET","raw":"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"}]},
-    {"id":"cw003","text":"commit 3353c3e fixed the race","expected":[]},
-
-    {"id":"v6001","text":"node at 2001:0db8:85a3:0000:0000:8a2e:0370:7334 responding","expected":[{"kind":"IPV6","raw":"2001:0db8:85a3:0000:0000:8a2e:0370:7334"}]},
-    {"id":"v6002","text":"MAC 00:1A:2B:3C:4D:5E registered","expected":[{"kind":"MAC_ADDRESS","raw":"00:1A:2B:3C:4D:5E"}],"note":"MACs are their own kind — and must never classify as IPv6"},
-    {"id":"v6003","text":"standup at 10:30:45 sharp","expected":[]},
-    {"id":"mac001","text":"nic 00-1a-2b-3c-4d-5e flapped overnight","expected":[{"kind":"MAC_ADDRESS","raw":"00-1a-2b-3c-4d-5e"}]},
-
-    {"id":"cs001","text":"broke prod: postgres://admin:hunter2@db.internal:5432/main","expected":[{"kind":"CONNECTION_STRING","raw":"postgres://admin:hunter2@db.internal:5432"}],"note":"credentialed URI blocks egress; span ends at the first path slash"},
-    {"id":"cs002","text":"mongodb+srv://svc:S3cr3t@cluster0.example.net/app timed out","expected":[{"kind":"CONNECTION_STRING","raw":"mongodb+srv://svc:S3cr3t@cluster0.example.net"}]},
-    {"id":"cs003","text":"redis://cache.example.com:6379 has no auth configured","expected":[],"note":"no credentials in the URI — not a secret (scheme isn't http, so URL doesn't fire either)"},
-
-    {"id":"ni001","text":"SIN: 046 454 286 on the application","expected":[{"kind":"CA_SIN","raw":"046 454 286"}]},
-    {"id":"ni002","text":"SIN: 046 454 287 fails the checksum","expected":[],"note":"Luhn fail"},
-    {"id":"ni003","text":"NHS number: 943 476 5919 admitted","expected":[{"kind":"UK_NHS","raw":"943 476 5919"}],"note":"phone-shaped value — anchored NHS must win the tie"},
-    {"id":"ni004","text":"NHS number: 943 476 5918 is invalid","expected":[{"kind":"PHONE","raw":"943 476 5918"}],"note":"mod-11 fail → not NHS; the bare 10-digit run is legitimately claimed by PHONE (safe over-redaction)"},
-    {"id":"ni005","text":"national insurance no: AB123456C on file","expected":[{"kind":"UK_NINO","raw":"AB123456C"}]},
-    {"id":"ni006","text":"TFN: 123 456 782 for payroll","expected":[{"kind":"AU_TFN","raw":"123 456 782"}]},
-    {"id":"ni007","text":"TFN: 123 456 789 rejected by the ATO","expected":[],"note":"weighted mod-11 fail"},
-    {"id":"ni008","text":"aadhaar no: 2341 2341 2346 verified","expected":[{"kind":"AADHAAR","raw":"2341 2341 2346"}]},
-    {"id":"ni009","text":"aadhaar no: 2341 2341 2340 mistyped","expected":[],"note":"Verhoeff fail"},
-    {"id":"ni010","text":"ITIN: 912-70-1234 filed with the return","expected":[{"kind":"US_ITIN","raw":"912-70-1234"}]},
-
-    {"id":"x001","text":"Refund $5,250 to card 4242 4242 4242 4242 for the May order","expected":[{"kind":"MONEY","raw":"$5,250"},{"kind":"CREDITCARD","raw":"4242 4242 4242 4242"}]},
-    {"id":"x002","text":"Patient MRN: 7782-A, DOB: 03/22/1964, member ID: BCB-449-2210","expected":[{"kind":"MRN","raw":"7782-A"},{"kind":"DOB","raw":"03/22/1964"},{"kind":"HEALTH_ID","raw":"BCB-449-2210"}]},
-    {"id":"x003","text":"IBAN GB82WEST12345698765432, SWIFT: DEUTDEFF, routing no: 021000021","expected":[{"kind":"IBAN","raw":"GB82WEST12345698765432"},{"kind":"SWIFT_BIC","raw":"DEUTDEFF"},{"kind":"US_BANK","raw":"021000021"}]},
-    {"id":"x004","text":"v2.3.1 released; build 10.0.0 tagged at 12:30","expected":[]},
-    {"id":"x005","text":"The retro is at 3pm; bring the Q3 figures and the v0.4.0 notes","expected":[]}
-  ]
+ "version": 2,
+ "prompts": [
+  {
+   "id": "p001",
+   "text": "Email alice@acme.com about the meeting",
+   "expected": [
+    {
+     "kind": "EMAIL",
+     "raw": "alice@acme.com"
+    }
+   ]
+  },
+  {
+   "id": "p002",
+   "text": "Call 555-123-4567 tomorrow",
+   "expected": [
+    {
+     "kind": "PHONE",
+     "raw": "555-123-4567"
+    }
+   ]
+  },
+  {
+   "id": "p003",
+   "text": "SSN 123-45-6789 is on file",
+   "expected": [
+    {
+     "kind": "SSN",
+     "raw": "123-45-6789"
+    }
+   ]
+  },
+  {
+   "id": "p004",
+   "text": "Use API key sk-demo-9f8d7c6b5a4e3d2c1",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "sk-demo-9f8d7c6b5a4e3d2c1"
+    }
+   ]
+  },
+  {
+   "id": "p005",
+   "text": "Server at 192.168.24.17",
+   "expected": [
+    {
+     "kind": "IP",
+     "raw": "192.168.24.17"
+    }
+   ]
+  },
+  {
+   "id": "p006",
+   "text": "Revenue of $42,500,000 projected",
+   "expected": [
+    {
+     "kind": "MONEY",
+     "raw": "$42,500,000"
+    }
+   ]
+  },
+  {
+   "id": "p007",
+   "text": "cc Sarah Chen on the thread",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Sarah Chen"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p008",
+   "text": "Project Helios launch date moved",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Project Helios"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p009",
+   "text": "EMP-47291 to lead follow-up",
+   "expected": [
+    {
+     "kind": "EMPID",
+     "raw": "EMP-47291"
+    }
+   ]
+  },
+  {
+   "id": "p010",
+   "text": "Office at 123 Main Street next week",
+   "expected": [
+    {
+     "kind": "ADDRESS",
+     "raw": "123 Main Street"
+    }
+   ]
+  },
+  {
+   "id": "p011",
+   "text": "Visit https://internal.example.co/prod today",
+   "expected": [
+    {
+     "kind": "URL",
+     "raw": "https://internal.example.co/prod"
+    }
+   ]
+  },
+  {
+   "id": "p012",
+   "text": "Memo for Sarah Chen at sarah.chen@example-corp.com about Q4",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Sarah Chen"
+    },
+    {
+     "kind": "EMAIL",
+     "raw": "sarah.chen@example-corp.com"
+    }
+   ]
+  },
+  {
+   "id": "p013",
+   "text": "Draft a note to Project Orion leads and cc Marcus Rodriguez",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Project Orion"
+    },
+    {
+     "kind": "PERSON_NER",
+     "raw": "Marcus Rodriguez"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p014",
+   "text": "Rotate sk-live-abcdef0123456789abcdef and email dev@company.com",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "sk-live-abcdef0123456789abcdef"
+    },
+    {
+     "kind": "EMAIL",
+     "raw": "dev@company.com"
+    }
+   ]
+  },
+  {
+   "id": "p015",
+   "text": "Send the contract to Priya Shah at Northwind Capital",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Priya Shah"
+    },
+    {
+     "kind": "ORG_NER",
+     "raw": "Northwind Capital"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p016",
+   "text": "SSN 234-56-7890 belongs to EMP-12345",
+   "expected": [
+    {
+     "kind": "SSN",
+     "raw": "234-56-7890"
+    },
+    {
+     "kind": "EMPID",
+     "raw": "EMP-12345"
+    }
+   ]
+  },
+  {
+   "id": "p017",
+   "text": "Phone +1 415 555 0100 works after 3pm PT",
+   "expected": [
+    {
+     "kind": "PHONE",
+     "raw": "1 415 555 0100"
+    }
+   ],
+   "note": "no word boundary exists before '+', so the span starts at the first digit"
+  },
+  {
+   "id": "p018",
+   "text": "Revenue projected at $5,000,000 this quarter per Northwind Capital",
+   "expected": [
+    {
+     "kind": "MONEY",
+     "raw": "$5,000,000"
+    },
+    {
+     "kind": "ORG_NER",
+     "raw": "Northwind Capital"
+    }
+   ]
+  },
+  {
+   "id": "p019",
+   "text": "James Patterson will present from 10 Downing Street",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "James Patterson"
+    },
+    {
+     "kind": "ADDRESS",
+     "raw": "10 Downing Street"
+    }
+   ]
+  },
+  {
+   "id": "p020",
+   "text": "Anna Müller flagged an issue with the Atlas Holdings deal",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Anna Müller"
+    },
+    {
+     "kind": "ORG_NER",
+     "raw": "Atlas Holdings"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p021",
+   "text": "My direct report Jamie Torres asked for feedback",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Jamie Torres"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p022",
+   "text": "Our new CMO Taylor Harrison joins next week",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Taylor Harrison"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p023",
+   "text": "Manager Diego Fernandez approved the PR",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Diego Fernandez"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p024",
+   "text": "Coordinate with Anika Raj on the rollout",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Anika Raj"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p025",
+   "text": "Flag to Kai Nakamura before publishing",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Kai Nakamura"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p026",
+   "text": "Acme Robotics signed the partnership letter",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Acme Robotics"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p027",
+   "text": "Zephyr Analytics handles our telemetry",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Zephyr Analytics"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p028",
+   "text": "The Sapphire Initiative kicks off in May",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Sapphire Initiative"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p029",
+   "text": "Rollout of Project Obsidian is delayed",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Project Obsidian"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p030",
+   "text": "Amsterdam office will host the offsite",
+   "expected": [
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Amsterdam"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p031",
+   "text": "Relocate the workshop to Berlin next quarter",
+   "expected": [
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Berlin"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p032",
+   "text": "Employee badge ID A-77821 was reported lost",
+   "expected": [
+    {
+     "kind": "EMPID_NER",
+     "raw": "A-77821"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p033",
+   "text": "Janelle Park mentioned layoffs coming in Q2",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Janelle Park"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p034",
+   "text": "Litigation risk around the Carlton deal",
+   "expected": [],
+   "semantic_only": true,
+   "note": "semantic-only-llm"
+  },
+  {
+   "id": "p035",
+   "text": "The legal hold touches Meridian Pharma files",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Meridian Pharma"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p036",
+   "text": "Olga Petrova will review from Prague",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Olga Petrova"
+    },
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Prague"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p037",
+   "text": "Schedule 1:1 with Rohan Desai on Thursday",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Rohan Desai"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p038",
+   "text": "Expanding Blackbird Initiative scope",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Blackbird Initiative"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p039",
+   "text": "HR dispute involves Maya Chen directly",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Maya Chen"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p040",
+   "text": "Cascade Biotics needs the compliance docs by Friday",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Cascade Biotics"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p041",
+   "text": "Nora Linden to draft the mediation memo",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Nora Linden"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p042",
+   "text": "Tokyo team handles the launch",
+   "expected": [
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Tokyo"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p043",
+   "text": "Fired employee Elliot Grey filed a complaint",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Elliot Grey"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p044",
+   "text": "Pivot decision for Quantum Harvest coming Friday",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Quantum Harvest"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p045",
+   "text": "Contractor Simone Laurent accessed prod",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Simone Laurent"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p046",
+   "text": "Reassignment for Farida Aziz goes live Monday",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Farida Aziz"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p047",
+   "text": "Singapore pilot is behind schedule",
+   "expected": [
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Singapore"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p048",
+   "text": "Terra Systems filed for bankruptcy protection",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Terra Systems"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p049",
+   "text": "Clearance revoked for Owen Brooks",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Owen Brooks"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p050",
+   "text": "Lisbon engineering team to lead the migration",
+   "expected": [
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Lisbon"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "b001",
+   "text": "The quick brown fox jumps over the lazy dog",
+   "expected": []
+  },
+  {
+   "id": "b002",
+   "text": "I love this new coffee blend",
+   "expected": []
+  },
+  {
+   "id": "b003",
+   "text": "Please summarize the last three chapters",
+   "expected": []
+  },
+  {
+   "id": "b004",
+   "text": "Running tests locally now",
+   "expected": []
+  },
+  {
+   "id": "b005",
+   "text": "The weather is nice today",
+   "expected": []
+  },
+  {
+   "id": "b006",
+   "text": "Can you recommend a good book",
+   "expected": []
+  },
+  {
+   "id": "b007",
+   "text": "This is a benign sentence with no PII",
+   "expected": []
+  },
+  {
+   "id": "b008",
+   "text": "Rebase the branch and push",
+   "expected": []
+  },
+  {
+   "id": "b009",
+   "text": "The API was down for three minutes",
+   "expected": []
+  },
+  {
+   "id": "b010",
+   "text": "Draft an engaging newsletter intro",
+   "expected": []
+  },
+  {
+   "id": "b011",
+   "text": "Fix the typo in the README",
+   "expected": []
+  },
+  {
+   "id": "b012",
+   "text": "Document the new endpoint please",
+   "expected": []
+  },
+  {
+   "id": "b013",
+   "text": "Tests should be idempotent",
+   "expected": []
+  },
+  {
+   "id": "b014",
+   "text": "Improve the error messages in the validator",
+   "expected": []
+  },
+  {
+   "id": "b015",
+   "text": "Refactor the polling loop to use backoff",
+   "expected": []
+  },
+  {
+   "id": "b016",
+   "text": "Add caching to the query layer",
+   "expected": []
+  },
+  {
+   "id": "b017",
+   "text": "Switch to a newer TypeScript version",
+   "expected": []
+  },
+  {
+   "id": "b018",
+   "text": "Rollback the last deploy if needed",
+   "expected": []
+  },
+  {
+   "id": "b019",
+   "text": "Review the PR when you have a minute",
+   "expected": []
+  },
+  {
+   "id": "b020",
+   "text": "Plan the roadmap for next quarter",
+   "expected": []
+  },
+  {
+   "id": "a001",
+   "text": "Not an email: alice at acme dot com",
+   "expected": []
+  },
+  {
+   "id": "a002",
+   "text": "Fake phone literal in docs: 555-1212 (too short)",
+   "expected": []
+  },
+  {
+   "id": "a003",
+   "text": "String looks like SSN format 12-345-6789",
+   "expected": []
+  },
+  {
+   "id": "a004",
+   "text": "API key pattern in logs: sk-EXAMPLE (placeholder; regex requires >=10 trailing chars so this should NOT match)",
+   "expected": []
+  },
+  {
+   "id": "a005",
+   "text": "IP-like string 999.999.999.999 is invalid",
+   "expected": [],
+   "note": "octet validator must reject out-of-range IPs"
+  },
+  {
+   "id": "a006",
+   "text": "Pretend-codename 'SunriseCo' not in whitelist",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "SunriseCo"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "a007",
+   "text": "Fake address literal 00 Nowhere Street (edge)",
+   "expected": [
+    {
+     "kind": "ADDRESS",
+     "raw": "00 Nowhere Street"
+    }
+   ],
+   "note": "address-shaped text matches by design; aliasing a fake address is harmless"
+  },
+  {
+   "id": "a008",
+   "text": "Money-shaped text $42 (too small for money regex)",
+   "expected": []
+  },
+  {
+   "id": "a009",
+   "text": "Plain first name Sarah alone in a sentence",
+   "expected": []
+  },
+  {
+   "id": "a010",
+   "text": "URL fragment without scheme: example.com/foo",
+   "expected": []
+  },
+  {
+   "id": "c001",
+   "text": "Staffing alert: Project Atlas-7 is over budget",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Project Atlas-7"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "c002",
+   "text": "Confidential: Project Nightshade ships next Q",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Project Nightshade"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "c003",
+   "text": "Initiative Falcon-Redux milestones are behind",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Initiative Falcon-Redux"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "c004",
+   "text": "Forward to the Helios engineering channel please",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Helios"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "c005",
+   "text": "Program Zephyr-Gamma requires legal sign-off",
+   "expected": [
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Program Zephyr-Gamma"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "e001",
+   "text": "Onboard employee E-00-8471 by Friday",
+   "expected": [
+    {
+     "kind": "EMPID_NER",
+     "raw": "E-00-8471"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "e002",
+   "text": "Payroll row HR.7721.BadgeID failed the import",
+   "expected": [
+    {
+     "kind": "EMPID_NER",
+     "raw": "HR.7721.BadgeID"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "e003",
+   "text": "Terminate badge 88-X-77210 at EOB",
+   "expected": [
+    {
+     "kind": "EMPID_NER",
+     "raw": "88-X-77210"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "l001",
+   "text": "Meet Taylor Cho at the Shibuya office tomorrow",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Taylor Cho"
+    },
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Shibuya"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "l002",
+   "text": "Kumiko Tanaka is moving back to Osaka next month",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Kumiko Tanaka"
+    },
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Osaka"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "l003",
+   "text": "Finance team is clustered in the London office",
+   "expected": [
+    {
+     "kind": "LOCATION_NER",
+     "raw": "London"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "l004",
+   "text": "Manufacturing moved from Shenzhen to Guadalajara",
+   "expected": [
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Shenzhen"
+    },
+    {
+     "kind": "LOCATION_NER",
+     "raw": "Guadalajara"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "o001",
+   "text": "BrightSky Ventures signed the term sheet today",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "BrightSky Ventures"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "o002",
+   "text": "Contract with Polaris Technologies finalizes Friday",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Polaris Technologies"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "o003",
+   "text": "Acme RoboLabs replied to our partnership pitch",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Acme RoboLabs"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "o004",
+   "text": "The team at Heliograph Media reached out for a demo",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Heliograph Media"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "o005",
+   "text": "Forward this to whichever partner at Northwood Associates handles onboarding",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "Northwood Associates"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p201",
+   "text": "Loop in Kenji Williams when the PR is ready for review",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Kenji Williams"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p202",
+   "text": "Pair on the design system with Amara Okafor next sprint",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Amara Okafor"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p203",
+   "text": "Rafael Duarte joins as staff engineer in June",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Rafael Duarte"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p204",
+   "text": "Schedule a 1:1 with Olga Pavlenko for Thursday",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Olga Pavlenko"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p205",
+   "text": "We should thank Ifeoma Nwosu for the code review",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Ifeoma Nwosu"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "p206",
+   "text": "Kazuki Mori is presenting at the engineering all-hands",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Kazuki Mori"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "m001",
+   "text": "Multi-signal: email rafi@brightsky.vc about Project Orion numbers",
+   "expected": [
+    {
+     "kind": "EMAIL",
+     "raw": "rafi@brightsky.vc"
+    },
+    {
+     "kind": "CODENAME_NER",
+     "raw": "Project Orion"
+    }
+   ]
+  },
+  {
+   "id": "m002",
+   "text": "Text Lin Huang at +1 408 555 2019 before the demo",
+   "expected": [
+    {
+     "kind": "PERSON_NER",
+     "raw": "Lin Huang"
+    },
+    {
+     "kind": "PHONE",
+     "raw": "1 408 555 2019"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "m003",
+   "text": "Wire the $2,500,000 tranche to Kaveh Mostafavi at Sequoia-East",
+   "expected": [
+    {
+     "kind": "MONEY",
+     "raw": "$2,500,000"
+    },
+    {
+     "kind": "PERSON_NER",
+     "raw": "Kaveh Mostafavi"
+    },
+    {
+     "kind": "ORG_NER",
+     "raw": "Sequoia-East"
+    }
+   ],
+   "semantic_only": true
+  },
+  {
+   "id": "cc001",
+   "text": "Card on file: 4111 1111 1111 1111",
+   "expected": [
+    {
+     "kind": "CREDITCARD",
+     "raw": "4111 1111 1111 1111"
+    }
+   ]
+  },
+  {
+   "id": "cc002",
+   "text": "charge 5500-0000-0000-0004 instead",
+   "expected": [
+    {
+     "kind": "CREDITCARD",
+     "raw": "5500-0000-0000-0004"
+    }
+   ]
+  },
+  {
+   "id": "cc003",
+   "text": "AmEx 378282246310005 expires 09/27",
+   "expected": [
+    {
+     "kind": "CREDITCARD",
+     "raw": "378282246310005"
+    }
+   ]
+  },
+  {
+   "id": "cc004",
+   "text": "order ref 4111 1111 1111 1112 shipped",
+   "expected": [],
+   "note": "Luhn fail — must not match"
+  },
+  {
+   "id": "cc005",
+   "text": "tracking 1234 5678 9012 3456 was scanned overnight",
+   "expected": [],
+   "note": "bad IIN + Luhn fail"
+  },
+  {
+   "id": "cc006",
+   "text": "account no: 4242424242424242 on the invoice",
+   "expected": [
+    {
+     "kind": "CREDITCARD",
+     "raw": "4242424242424242"
+    }
+   ],
+   "note": "span tie vs US_BANK must resolve to the blocking kind"
+  },
+  {
+   "id": "ib001",
+   "text": "wire to DE89 3704 0044 0532 0130 00 today",
+   "expected": [
+    {
+     "kind": "IBAN",
+     "raw": "DE89 3704 0044 0532 0130 00"
+    }
+   ]
+  },
+  {
+   "id": "ib002",
+   "text": "GB82WEST12345698765432 is the new account",
+   "expected": [
+    {
+     "kind": "IBAN",
+     "raw": "GB82WEST12345698765432"
+    }
+   ]
+  },
+  {
+   "id": "ib003",
+   "text": "ref DE89 3704 0044 0532 0130 01 noted",
+   "expected": [],
+   "note": "mod-97 fail"
+  },
+  {
+   "id": "ib004",
+   "text": "ref US12 3456 7890 1234 5678 case",
+   "expected": [],
+   "note": "US is not an IBAN country"
+  },
+  {
+   "id": "bk001",
+   "text": "routing number: 021000021 for the wire",
+   "expected": [
+    {
+     "kind": "US_BANK",
+     "raw": "021000021"
+    }
+   ]
+  },
+  {
+   "id": "bk002",
+   "text": "acct #: 000123456789 needs review",
+   "expected": [
+    {
+     "kind": "US_BANK",
+     "raw": "000123456789"
+    }
+   ]
+  },
+  {
+   "id": "bk003",
+   "text": "routing number: 123456789 fails the checksum",
+   "expected": [],
+   "note": "ABA checksum fail"
+  },
+  {
+   "id": "bk004",
+   "text": "the code 021000021 appears in the export",
+   "expected": [],
+   "note": "no anchor — bare 9-digit runs stay undetected by design"
+  },
+  {
+   "id": "sw001",
+   "text": "wire code swift: DEUTDEFF for the transfer",
+   "expected": [
+    {
+     "kind": "SWIFT_BIC",
+     "raw": "DEUTDEFF"
+    }
+   ]
+  },
+  {
+   "id": "sw002",
+   "text": "BIC code BOFAUS3NXXX on the invoice",
+   "expected": [
+    {
+     "kind": "SWIFT_BIC",
+     "raw": "BOFAUS3NXXX"
+    }
+   ]
+  },
+  {
+   "id": "sw003",
+   "text": "Swift is a programming language, not a bank code",
+   "expected": []
+  },
+  {
+   "id": "ein001",
+   "text": "their tax id 84-1234567 is on the W-9",
+   "expected": [
+    {
+     "kind": "EIN",
+     "raw": "84-1234567"
+    }
+   ]
+  },
+  {
+   "id": "ein002",
+   "text": "part 12-3456789 of the doc",
+   "expected": [],
+   "note": "no anchor"
+  },
+  {
+   "id": "sk001",
+   "text": "deploy key github_pat_11ABCDEFG0123456789abcdefgh",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "github_pat_11ABCDEFG0123456789abcdefgh"
+    }
+   ]
+  },
+  {
+   "id": "sk002",
+   "text": "ci uses glpat-AbCdEfGhIjKlMnOpQrSt",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "glpat-AbCdEfGhIjKlMnOpQrSt"
+    }
+   ]
+  },
+  {
+   "id": "sk003",
+   "text": "maps key AIzaSyA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1v",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "AIzaSyA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1v"
+    }
+   ]
+  },
+  {
+   "id": "sk004",
+   "text": "stripe sk_test_4eC39HqLyjWDarjt",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "sk_test_4eC39HqLyjWDarjt"
+    }
+   ],
+   "note": "test prefix + sub-24-char body so the corpus never trips secret scanners"
+  },
+  {
+   "id": "sk005",
+   "text": "ghp_short is not a token",
+   "expected": []
+  },
+  {
+   "id": "sk006",
+   "text": "aws_secret_access_key = bPxRfiCYEXAMPLEKEY12wJalrXUtnFEMIK7MDENG",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "bPxRfiCYEXAMPLEKEY12wJalrXUtnFEMIK7MDENG"
+    }
+   ],
+   "note": "anchored 40-char AWS secret (scrambled non-real example value)"
+  },
+  {
+   "id": "sk007",
+   "text": "curl -H 'Authorization: Bearer xTokenAbCdEf123456.789'",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "xTokenAbCdEf123456.789"
+    }
+   ]
+  },
+  {
+   "id": "sk008",
+   "text": "set authorization policy for the bearer of this document",
+   "expected": [],
+   "note": "no token after the words — must not anchor on prose"
+  },
+  {
+   "id": "jwt001",
+   "text": "bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c",
+   "expected": [
+    {
+     "kind": "JWT",
+     "raw": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c"
+    }
+   ]
+  },
+  {
+   "id": "jwt002",
+   "text": "open data.tar.gz attached here",
+   "expected": []
+  },
+  {
+   "id": "pk001",
+   "text": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA7\n-----END RSA PRIVATE KEY-----",
+   "expected": [
+    {
+     "kind": "PRIVATE_KEY",
+     "raw": "-----BEGIN RSA PRIVATE KEY-----\nMIIEpAIBAAKCAQEA7\n-----END RSA PRIVATE KEY-----"
+    }
+   ]
+  },
+  {
+   "id": "pk002",
+   "text": "pasted -----BEGIN OPENSSH PRIVATE KEY----- and stopped",
+   "expected": [
+    {
+     "kind": "PRIVATE_KEY",
+     "raw": "-----BEGIN OPENSSH PRIVATE KEY-----"
+    }
+   ]
+  },
+  {
+   "id": "pk003",
+   "text": "my private key is in 1Password",
+   "expected": []
+  },
+  {
+   "id": "id001",
+   "text": "DOB: 04/12/1985 per the intake form",
+   "expected": [
+    {
+     "kind": "DOB",
+     "raw": "04/12/1985"
+    }
+   ]
+  },
+  {
+   "id": "id002",
+   "text": "patient date of birth 1990-07-22",
+   "expected": [
+    {
+     "kind": "DOB",
+     "raw": "1990-07-22"
+    }
+   ]
+  },
+  {
+   "id": "id003",
+   "text": "born on March 3, 1978 per the intake file",
+   "expected": [
+    {
+     "kind": "DOB",
+     "raw": "March 3, 1978"
+    }
+   ]
+  },
+  {
+   "id": "id004",
+   "text": "DOB: 13/45/9999 is obviously invalid",
+   "expected": [],
+   "note": "date plausibility fail"
+  },
+  {
+   "id": "id005",
+   "text": "the 04/12/1985 build was archived",
+   "expected": [],
+   "note": "no anchor"
+  },
+  {
+   "id": "pp001",
+   "text": "passport no: N1234567 expires 2031",
+   "expected": [
+    {
+     "kind": "PASSPORT",
+     "raw": "N1234567"
+    }
+   ]
+  },
+  {
+   "id": "pp002",
+   "text": "passport details: attached below",
+   "expected": [],
+   "note": "captured word has no digit"
+  },
+  {
+   "id": "dl001",
+   "text": "driver's license no: D1234567 on file",
+   "expected": [
+    {
+     "kind": "DRIVERS_LICENSE",
+     "raw": "D1234567"
+    }
+   ]
+  },
+  {
+   "id": "dl002",
+   "text": "DL renewal is pending review",
+   "expected": [],
+   "note": "anchored capture has no digit"
+  },
+  {
+   "id": "md001",
+   "text": "MRN: 00482931 admitted Tuesday",
+   "expected": [
+    {
+     "kind": "MRN",
+     "raw": "00482931"
+    }
+   ]
+  },
+  {
+   "id": "md002",
+   "text": "provider NPI: 1234567893 accepted",
+   "expected": [
+    {
+     "kind": "NPI",
+     "raw": "1234567893"
+    }
+   ],
+   "note": "tie vs PHONE must resolve to NPI"
+  },
+  {
+   "id": "md003",
+   "text": "prescriber dea no: BB1388568 verified",
+   "expected": [
+    {
+     "kind": "DEA",
+     "raw": "BB1388568"
+    }
+   ]
+  },
+  {
+   "id": "md004",
+   "text": "member ID: XR4-882-991 active",
+   "expected": [
+    {
+     "kind": "HEALTH_ID",
+     "raw": "XR4-882-991"
+    }
+   ]
+  },
+  {
+   "id": "md005",
+   "text": "the DEA investigation continues",
+   "expected": [
+    {
+     "kind": "ORG_NER",
+     "raw": "DEA"
+    }
+   ],
+   "semantic_only": true,
+   "note": "the agency is a legit NER org; the point is no DEA-number span without a number"
+  },
+  {
+   "id": "md006",
+   "text": "MRN: pending review",
+   "expected": [],
+   "note": "captured word has no digit"
+  },
+  {
+   "id": "lg001",
+   "text": "Case No. 4:22-cv-00321-KAW is on the docket",
+   "expected": [
+    {
+     "kind": "CASE_NO",
+     "raw": "4:22-cv-00321-KAW"
+    }
+   ]
+  },
+  {
+   "id": "lg002",
+   "text": "see 1:21-cv-04567 for the ruling",
+   "expected": [
+    {
+     "kind": "CASE_NO",
+     "raw": "1:21-cv-04567"
+    }
+   ]
+  },
+  {
+   "id": "lg003",
+   "text": "in case you missed it, ship Friday",
+   "expected": []
+  },
+  {
+   "id": "lg004",
+   "text": "matter: urgent escalation",
+   "expected": []
+  },
+  {
+   "id": "cw001",
+   "text": "send to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+   "expected": [
+    {
+     "kind": "CRYPTO_WALLET",
+     "raw": "0x742d35Cc6634C0532925a3b844Bc454e4438f44e"
+    }
+   ]
+  },
+  {
+   "id": "cw002",
+   "text": "btc 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa today",
+   "expected": [
+    {
+     "kind": "CRYPTO_WALLET",
+     "raw": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
+    }
+   ]
+  },
+  {
+   "id": "cw003",
+   "text": "commit 3353c3e fixed the race",
+   "expected": []
+  },
+  {
+   "id": "v6001",
+   "text": "node at 2001:0db8:85a3:0000:0000:8a2e:0370:7334 responding",
+   "expected": [
+    {
+     "kind": "IPV6",
+     "raw": "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+    }
+   ]
+  },
+  {
+   "id": "v6002",
+   "text": "MAC 00:1A:2B:3C:4D:5E registered",
+   "expected": [
+    {
+     "kind": "MAC_ADDRESS",
+     "raw": "00:1A:2B:3C:4D:5E"
+    }
+   ],
+   "note": "MACs are their own kind — and must never classify as IPv6"
+  },
+  {
+   "id": "v6003",
+   "text": "standup at 10:30:45 sharp",
+   "expected": []
+  },
+  {
+   "id": "mac001",
+   "text": "nic 00-1a-2b-3c-4d-5e flapped overnight",
+   "expected": [
+    {
+     "kind": "MAC_ADDRESS",
+     "raw": "00-1a-2b-3c-4d-5e"
+    }
+   ]
+  },
+  {
+   "id": "cs001",
+   "text": "broke prod: postgres://admin:hunter2@db.internal:5432/main",
+   "expected": [
+    {
+     "kind": "CONNECTION_STRING",
+     "raw": "postgres://admin:hunter2@db.internal:5432"
+    }
+   ],
+   "note": "credentialed URI blocks egress; span ends at the first path slash"
+  },
+  {
+   "id": "cs002",
+   "text": "mongodb+srv://svc:S3cr3t@cluster0.example.net/app timed out",
+   "expected": [
+    {
+     "kind": "CONNECTION_STRING",
+     "raw": "mongodb+srv://svc:S3cr3t@cluster0.example.net"
+    }
+   ]
+  },
+  {
+   "id": "cs003",
+   "text": "redis://cache.example.com:6379 has no auth configured",
+   "expected": [],
+   "note": "no credentials in the URI — not a secret (scheme isn't http, so URL doesn't fire either)"
+  },
+  {
+   "id": "ni001",
+   "text": "SIN: 046 454 286 on the application",
+   "expected": [
+    {
+     "kind": "CA_SIN",
+     "raw": "046 454 286"
+    }
+   ]
+  },
+  {
+   "id": "ni002",
+   "text": "SIN: 046 454 287 fails the checksum",
+   "expected": [],
+   "note": "Luhn fail"
+  },
+  {
+   "id": "ni003",
+   "text": "NHS number: 943 476 5919 admitted",
+   "expected": [
+    {
+     "kind": "UK_NHS",
+     "raw": "943 476 5919"
+    }
+   ],
+   "note": "phone-shaped value — anchored NHS must win the tie"
+  },
+  {
+   "id": "ni004",
+   "text": "NHS number: 943 476 5918 is invalid",
+   "expected": [
+    {
+     "kind": "PHONE",
+     "raw": "943 476 5918"
+    }
+   ],
+   "note": "mod-11 fail → not NHS; the bare 10-digit run is legitimately claimed by PHONE (safe over-redaction)"
+  },
+  {
+   "id": "ni005",
+   "text": "national insurance no: AB123456C on file",
+   "expected": [
+    {
+     "kind": "UK_NINO",
+     "raw": "AB123456C"
+    }
+   ]
+  },
+  {
+   "id": "ni006",
+   "text": "TFN: 123 456 782 for payroll",
+   "expected": [
+    {
+     "kind": "AU_TFN",
+     "raw": "123 456 782"
+    }
+   ]
+  },
+  {
+   "id": "ni007",
+   "text": "TFN: 123 456 789 rejected by the ATO",
+   "expected": [],
+   "note": "weighted mod-11 fail"
+  },
+  {
+   "id": "ni008",
+   "text": "aadhaar no: 2341 2341 2346 verified",
+   "expected": [
+    {
+     "kind": "AADHAAR",
+     "raw": "2341 2341 2346"
+    }
+   ]
+  },
+  {
+   "id": "ni009",
+   "text": "aadhaar no: 2341 2341 2340 mistyped",
+   "expected": [],
+   "note": "Verhoeff fail"
+  },
+  {
+   "id": "ni010",
+   "text": "ITIN: 912-70-1234 filed with the return",
+   "expected": [
+    {
+     "kind": "US_ITIN",
+     "raw": "912-70-1234"
+    }
+   ]
+  },
+  {
+   "id": "x001",
+   "text": "Refund $5,250 to card 4242 4242 4242 4242 for the May order",
+   "expected": [
+    {
+     "kind": "MONEY",
+     "raw": "$5,250"
+    },
+    {
+     "kind": "CREDITCARD",
+     "raw": "4242 4242 4242 4242"
+    }
+   ]
+  },
+  {
+   "id": "x002",
+   "text": "Patient MRN: 7782-A, DOB: 03/22/1964, member ID: BCB-449-2210",
+   "expected": [
+    {
+     "kind": "MRN",
+     "raw": "7782-A"
+    },
+    {
+     "kind": "DOB",
+     "raw": "03/22/1964"
+    },
+    {
+     "kind": "HEALTH_ID",
+     "raw": "BCB-449-2210"
+    }
+   ]
+  },
+  {
+   "id": "x003",
+   "text": "IBAN GB82WEST12345698765432, SWIFT: DEUTDEFF, routing no: 021000021",
+   "expected": [
+    {
+     "kind": "IBAN",
+     "raw": "GB82WEST12345698765432"
+    },
+    {
+     "kind": "SWIFT_BIC",
+     "raw": "DEUTDEFF"
+    },
+    {
+     "kind": "US_BANK",
+     "raw": "021000021"
+    }
+   ]
+  },
+  {
+   "id": "x004",
+   "text": "v2.3.1 released; build 10.0.0 tagged at 12:30",
+   "expected": []
+  },
+  {
+   "id": "x005",
+   "text": "The retro is at 3pm; bring the Q3 figures and the v0.4.0 notes",
+   "expected": []
+  },
+  {
+   "id": "cr001",
+   "text": "Deploy broke, I set password=Tr0ub4dor&3xplor3 in the env and restarted",
+   "expected": [
+    {
+     "kind": "CREDENTIAL",
+     "raw": "Tr0ub4dor&3xplor3"
+    }
+   ]
+  },
+  {
+   "id": "cr002",
+   "text": "the config block reads \"api_key\": \"9aB3xQ7mLpZ2kf4w\" under integrations",
+   "expected": [
+    {
+     "kind": "CREDENTIAL",
+     "raw": "9aB3xQ7mLpZ2kf4w"
+    }
+   ]
+  },
+  {
+   "id": "cr003",
+   "text": "ops runbook says export CLIENT_SECRET=mZ9qLp42xKv7wRt3 before the migration",
+   "expected": [
+    {
+     "kind": "CREDENTIAL",
+     "raw": "mZ9qLp42xKv7wRt3"
+    }
+   ]
+  },
+  {
+   "id": "cr004",
+   "text": "set password=changeme on first login, the wizard forces a rotation",
+   "expected": []
+  },
+  {
+   "id": "cr005",
+   "text": "compose reads password=${POSTGRES_PASSWORD} from the .env file",
+   "expected": []
+  },
+  {
+   "id": "cr006",
+   "text": "the secret: remember to rotate quarterly per the runbook",
+   "expected": []
+  },
+  {
+   "id": "cr007",
+   "text": "drop your token = <your-token-here> placeholder into .env.example",
+   "expected": []
+  }
+ ]
 }
