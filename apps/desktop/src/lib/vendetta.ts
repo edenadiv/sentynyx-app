@@ -21,6 +21,7 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "PRIVATE_KEY", re: /-----BEGIN (?:[A-Z][A-Z ]{0,24})?PRIVATE KEY-----(?:[\s\S]{0,4096}?-----END (?:[A-Z][A-Z ]{0,24})?PRIVATE KEY-----)?/g },
   { kind: "CREDITCARD", re: /\b\d(?:[ -]?\d){12,18}\b/g },
   { kind: "IBAN", re: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/g },
+  { kind: "CONNECTION_STRING", re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|amqps?):\/\/[^\s:/@]+:[^\s/@]+@[^\s/]+/gi },
   // ---- 2. Anchored packs ----
   { kind: "US_BANK", re: /\b(?:aba|routing|rtn)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b/gi, cap: true },
   { kind: "US_BANK", re: /\b(?:account|acct)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{6,17})\b/gi, cap: true },
@@ -29,6 +30,12 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "DOB", re: /\b(?:dob|date of birth|birth ?date|born(?: on)?)\.?[:\s]+(\d{1,2}[/\-.]\d{1,2}[/\-.](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.? +\d{1,2},? +\d{4})\b/gi, cap: true },
   { kind: "PASSPORT", re: /\bpassport(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9]{6,9})\b/gi, cap: true },
   { kind: "DRIVERS_LICENSE", re: /\b(?:driver'?s? licen[cs]e|dl)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9-]{4,13})\b/gi, cap: true },
+  { kind: "US_ITIN", re: /\bitin(?:\s*(?:no|number|#))?\.?[:\s]+(9\d{2}-(?:7\d|8[0-8]|9[0-24-9])-\d{4})\b/gi, cap: true },
+  { kind: "CA_SIN", re: /\b(?:sin|social insurance)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ -]?\d{3}[ -]?\d{3})\b/gi, cap: true },
+  { kind: "UK_NHS", re: /\bnhs(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ -]?\d{3}[ -]?\d{4})\b/gi, cap: true },
+  { kind: "UK_NINO", re: /\b(?:national insurance|nino)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Za-z]{2}\d{6}[A-Da-d])\b/gi, cap: true },
+  { kind: "AU_TFN", re: /\b(?:tfn|tax file number)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ -]?\d{3}[ -]?\d{3})\b/gi, cap: true },
+  { kind: "AADHAAR", re: /\baadh?aar(?:\s*(?:no|number|#))?\.?[:\s]+(\d{4}[ -]?\d{4}[ -]?\d{4})\b/gi, cap: true },
   { kind: "MRN", re: /\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9-]{5,12})\b/gi, cap: true },
   { kind: "NPI", re: /\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b/gi, cap: true },
   { kind: "DEA", re: /\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b/gi, cap: true },
@@ -37,6 +44,7 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "CASE_NO", re: /\b\d{1,2}:\d{2}-(?:cv|cr|cm|md|mc|mj|po|sw)-\d{2,6}(?:-[A-Z]{2,4})?\b/g },
   { kind: "CRYPTO_WALLET", re: /\b0x[a-fA-F0-9]{40}\b|\bbc1[ac-hj-np-z02-9]{25,62}\b|\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b/g },
   { kind: "JWT", re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
+  { kind: "MAC_ADDRESS", re: /\b[0-9A-Fa-f]{2}(?:[:-][0-9A-Fa-f]{2}){5}\b/g },
   { kind: "IPV6", re: /\b[A-Fa-f0-9]{1,4}(?::[A-Fa-f0-9]{0,4}){2,7}\b/g },
   // ---- 3. Legacy generics ----
   { kind: "EMAIL",   re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
@@ -56,11 +64,13 @@ export const LABELS: Record<Kind, string> = {
   APIKEY: "api-key", URL: "url", ADDRESS: "address", MONEY: "amount",
   NAME: "person", COMPANY: "entity", EMPID: "employee-id",
   CREDITCARD: "card", IBAN: "iban", US_BANK: "bank", SWIFT_BIC: "swift", EIN: "ein",
-  JWT: "jwt", PRIVATE_KEY: "private-key",
+  JWT: "jwt", PRIVATE_KEY: "private-key", CONNECTION_STRING: "conn-string",
   DOB: "dob", PASSPORT: "passport", DRIVERS_LICENSE: "license",
+  US_ITIN: "itin", CA_SIN: "sin", UK_NHS: "nhs", UK_NINO: "nino",
+  AU_TFN: "tfn", AADHAAR: "aadhaar",
   MRN: "mrn", NPI: "npi", DEA: "dea", HEALTH_ID: "member-id",
   CASE_NO: "case",
-  CRYPTO_WALLET: "wallet", IPV6: "ipv6",
+  CRYPTO_WALLET: "wallet", IPV6: "ipv6", MAC_ADDRESS: "mac",
   CUSTOM: "custom",
   PERSON_NER: "person", ORG_NER: "entity", CODENAME_NER: "codename",
   LOCATION_NER: "location", EMPID_NER: "employee-id",
@@ -95,6 +105,11 @@ export const CRITICAL: Partial<Record<Kind, { name: string; class: string; desc:
     name: "Private key material in outbound payload",
     class: "CRITICAL_SECRET",
     desc: "Private keys must never leave this machine. Treat this key as compromised and rotate it before continuing.",
+  },
+  CONNECTION_STRING: {
+    name: "Database credentials in outbound payload",
+    class: "CRITICAL_SECRET",
+    desc: "This connection string carries a live password in the URI. Rotate the credential and keep connection strings out of prompts — or switch to a local model.",
   },
 };
 
@@ -200,6 +215,59 @@ function dea(raw: string): boolean {
   if (d.length !== 7) return false;
   const sum = (d[0] + d[2] + d[4]) + 2 * (d[1] + d[3] + d[5]);
   return sum % 10 === d[6];
+}
+
+function caSin(raw: string): boolean {
+  const d = digitsOf(raw);
+  return d.length === 9 && luhn(d);
+}
+
+function ukNhs(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 10) return false;
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += d[i] * (10 - i);
+  let check = 11 - (sum % 11);
+  if (check === 11) check = 0;
+  if (check === 10) return false;
+  return check === d[9];
+}
+
+function ukNino(raw: string): boolean {
+  const s = raw.toUpperCase();
+  if (s.length !== 9) return false;
+  const banned = (c: string) => "DFIQUV".includes(c);
+  if (banned(s[0]) || banned(s[1]) || s[1] === "O") return false;
+  if (["BG", "GB", "NK", "KN", "TN", "NT", "ZZ"].includes(s.slice(0, 2))) return false;
+  return true;
+}
+
+function auTfn(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 9) return false;
+  const w = [1, 4, 3, 7, 5, 8, 6, 9, 10];
+  return d.reduce((acc, x, i) => acc + x * w[i], 0) % 11 === 0;
+}
+
+const VERHOEFF_D = [
+  [0,1,2,3,4,5,6,7,8,9],[1,2,3,4,0,6,7,8,9,5],[2,3,4,0,1,7,8,9,5,6],
+  [3,4,0,1,2,8,9,5,6,7],[4,0,1,2,3,9,5,6,7,8],[5,9,8,7,6,0,4,3,2,1],
+  [6,5,9,8,7,1,0,4,3,2],[7,6,5,9,8,2,1,0,4,3],[8,7,6,5,9,3,2,1,0,4],
+  [9,8,7,6,5,4,3,2,1,0],
+];
+const VERHOEFF_P = [
+  [0,1,2,3,4,5,6,7,8,9],[1,5,7,6,2,8,3,0,9,4],[5,8,0,3,7,9,6,1,4,2],
+  [8,9,1,6,0,4,3,5,2,7],[9,4,5,3,1,2,6,8,7,0],[4,2,8,6,5,7,3,9,0,1],
+  [2,7,9,3,8,0,6,4,1,5],[7,0,4,6,9,1,3,2,5,8],
+];
+
+function aadhaar(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 12 || d[0] < 2) return false;
+  let c = 0;
+  const rev = [...d].reverse();
+  for (let i = 0; i < rev.length; i++) c = VERHOEFF_D[c][VERHOEFF_P[i % 8][rev[i]]];
+  return c === 0;
 }
 
 function datePlausible(raw: string): boolean {
@@ -336,6 +404,11 @@ export function validate(kind: Kind, raw: string): boolean {
     case "SWIFT_BIC": return swiftBic(raw);
     case "NPI": return npi(raw);
     case "DEA": return dea(raw);
+    case "CA_SIN": return caSin(raw);
+    case "UK_NHS": return ukNhs(raw);
+    case "UK_NINO": return ukNino(raw);
+    case "AU_TFN": return auTfn(raw);
+    case "AADHAAR": return aadhaar(raw);
     case "DOB": return datePlausible(raw);
     case "IP": return ipv4Octets(raw);
     case "IPV6": return ipv6Parses(raw);

@@ -4,15 +4,17 @@ export type Kind =
   // Payment / banking
   | "CREDITCARD" | "IBAN" | "US_BANK" | "SWIFT_BIC" | "EIN"
   // Secrets
-  | "JWT" | "PRIVATE_KEY"
+  | "JWT" | "PRIVATE_KEY" | "CONNECTION_STRING"
   // Identity documents
   | "DOB" | "PASSPORT" | "DRIVERS_LICENSE"
+  // National / government identifiers
+  | "US_ITIN" | "CA_SIN" | "UK_NHS" | "UK_NINO" | "AU_TFN" | "AADHAAR"
   // Medical
   | "MRN" | "NPI" | "DEA" | "HEALTH_ID"
   // Legal
   | "CASE_NO"
   // Crypto / network
-  | "CRYPTO_WALLET" | "IPV6"
+  | "CRYPTO_WALLET" | "IPV6" | "MAC_ADDRESS"
   // User-defined watchlist
   | "CUSTOM"
   | "PERSON_NER" | "ORG_NER" | "CODENAME_NER" | "LOCATION_NER" | "EMPID_NER";

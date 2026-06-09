@@ -9,15 +9,17 @@ pub enum Kind {
     // Payment / banking
     CREDITCARD, IBAN, US_BANK, SWIFT_BIC, EIN,
     // Secrets
-    JWT, PRIVATE_KEY,
+    JWT, PRIVATE_KEY, CONNECTION_STRING,
     // Identity documents
     DOB, PASSPORT, DRIVERS_LICENSE,
+    // National / government identifiers (region packs)
+    US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR,
     // Medical
     MRN, NPI, DEA, HEALTH_ID,
     // Legal
     CASE_NO,
     // Crypto / network
-    CRYPTO_WALLET, IPV6,
+    CRYPTO_WALLET, IPV6, MAC_ADDRESS,
     // User-defined watchlist terms (see detect::custom). Never blocks.
     CUSTOM,
     PERSON_NER, ORG_NER, CODENAME_NER, LOCATION_NER, EMPID_NER,
@@ -32,11 +34,13 @@ impl Kind {
             Kind::NAME => "person", Kind::COMPANY => "entity", Kind::EMPID => "employee-id",
             Kind::CREDITCARD => "card", Kind::IBAN => "iban", Kind::US_BANK => "bank",
             Kind::SWIFT_BIC => "swift", Kind::EIN => "ein",
-            Kind::JWT => "jwt", Kind::PRIVATE_KEY => "private-key",
+            Kind::JWT => "jwt", Kind::PRIVATE_KEY => "private-key", Kind::CONNECTION_STRING => "conn-string",
             Kind::DOB => "dob", Kind::PASSPORT => "passport", Kind::DRIVERS_LICENSE => "license",
+            Kind::US_ITIN => "itin", Kind::CA_SIN => "sin", Kind::UK_NHS => "nhs",
+            Kind::UK_NINO => "nino", Kind::AU_TFN => "tfn", Kind::AADHAAR => "aadhaar",
             Kind::MRN => "mrn", Kind::NPI => "npi", Kind::DEA => "dea", Kind::HEALTH_ID => "member-id",
             Kind::CASE_NO => "case",
-            Kind::CRYPTO_WALLET => "wallet", Kind::IPV6 => "ipv6",
+            Kind::CRYPTO_WALLET => "wallet", Kind::IPV6 => "ipv6", Kind::MAC_ADDRESS => "mac",
             Kind::CUSTOM => "custom",
             Kind::PERSON_NER => "person", Kind::ORG_NER => "entity",
             Kind::CODENAME_NER => "codename", Kind::LOCATION_NER => "location",
@@ -51,11 +55,13 @@ impl Kind {
             Kind::NAME => "NAME", Kind::COMPANY => "COMPANY", Kind::EMPID => "EMPID",
             Kind::CREDITCARD => "CREDITCARD", Kind::IBAN => "IBAN", Kind::US_BANK => "US_BANK",
             Kind::SWIFT_BIC => "SWIFT_BIC", Kind::EIN => "EIN",
-            Kind::JWT => "JWT", Kind::PRIVATE_KEY => "PRIVATE_KEY",
+            Kind::JWT => "JWT", Kind::PRIVATE_KEY => "PRIVATE_KEY", Kind::CONNECTION_STRING => "CONNECTION_STRING",
             Kind::DOB => "DOB", Kind::PASSPORT => "PASSPORT", Kind::DRIVERS_LICENSE => "DRIVERS_LICENSE",
+            Kind::US_ITIN => "US_ITIN", Kind::CA_SIN => "CA_SIN", Kind::UK_NHS => "UK_NHS",
+            Kind::UK_NINO => "UK_NINO", Kind::AU_TFN => "AU_TFN", Kind::AADHAAR => "AADHAAR",
             Kind::MRN => "MRN", Kind::NPI => "NPI", Kind::DEA => "DEA", Kind::HEALTH_ID => "HEALTH_ID",
             Kind::CASE_NO => "CASE_NO",
-            Kind::CRYPTO_WALLET => "CRYPTO_WALLET", Kind::IPV6 => "IPV6",
+            Kind::CRYPTO_WALLET => "CRYPTO_WALLET", Kind::IPV6 => "IPV6", Kind::MAC_ADDRESS => "MAC_ADDRESS",
             Kind::CUSTOM => "CUSTOM",
             Kind::PERSON_NER => "PERSON_NER", Kind::ORG_NER => "ORG_NER",
             Kind::CODENAME_NER => "CODENAME_NER", Kind::LOCATION_NER => "LOCATION_NER",
@@ -100,6 +106,9 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     p(Kind::PRIVATE_KEY, r"-----BEGIN (?:[A-Z][A-Z ]{0,24})?PRIVATE KEY-----(?:(?s).{0,4096}?-----END (?:[A-Z][A-Z ]{0,24})?PRIVATE KEY-----)?"),
     p(Kind::CREDITCARD, r"\b\d(?:[ \-]?\d){12,18}\b"),
     p(Kind::IBAN,       r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]){11,30}\b"),
+    // Database/broker connection strings with embedded credentials — the
+    // password travels in the URI, so this is as sensitive as an API key.
+    p(Kind::CONNECTION_STRING, r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|amqps?)://[^\s:/@]+:[^\s/@]+@[^\s/]+"),
     // ---- 2. Anchored packs (alias) -----------------------------------------
     pc(Kind::US_BANK, r"(?i)\b(?:aba|routing|rtn)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b"),
     pc(Kind::US_BANK, r"(?i)\b(?:account|acct)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{6,17})\b"),
@@ -108,6 +117,16 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     pc(Kind::DOB, r"(?i)\b(?:dob|date of birth|birth\s?date|born(?:\s+on)?)\.?[:\s]+(\d{1,2}[/\-\.]\d{1,2}[/\-\.](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?\s+\d{4})\b"),
     pc(Kind::PASSPORT, r"(?i)\bpassport(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9]{6,9})\b"),
     pc(Kind::DRIVERS_LICENSE, r"(?i)\b(?:driver'?s?\s+licen[cs]e|dl)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{4,13})\b"),
+    // National / government identifiers. All context-anchored (bare digit
+    // runs are ambiguous across regions) and checksum-validated where the
+    // scheme defines one. NHS values are 3-3-4 like US phone numbers — the
+    // anchored entry must precede PHONE so the tie resolves to NHS.
+    pc(Kind::US_ITIN, r"(?i)\bitin(?:\s*(?:no|number|#))?\.?[:\s]+(9\d{2}-(?:7\d|8[0-8]|9[0-24-9])-\d{4})\b"),
+    pc(Kind::CA_SIN, r"(?i)\b(?:sin|social insurance)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ \-]?\d{3}[ \-]?\d{3})\b"),
+    pc(Kind::UK_NHS, r"(?i)\bnhs(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ \-]?\d{3}[ \-]?\d{4})\b"),
+    pc(Kind::UK_NINO, r"(?i)\b(?:national insurance|nino)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Za-z]{2}\d{6}[A-Da-d])\b"),
+    pc(Kind::AU_TFN, r"(?i)\b(?:tfn|tax file number)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ \-]?\d{3}[ \-]?\d{3})\b"),
+    pc(Kind::AADHAAR, r"(?i)\baadh?aar(?:\s*(?:no|number|#))?\.?[:\s]+(\d{4}[ \-]?\d{4}[ \-]?\d{4})\b"),
     pc(Kind::MRN, r"(?i)\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{5,12})\b"),
     pc(Kind::NPI, r"(?i)\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b"),
     pc(Kind::DEA, r"(?i)\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b"),
@@ -116,6 +135,9 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     p(Kind::CASE_NO, r"\b\d{1,2}:\d{2}-(?:cv|cr|cm|md|mc|mj|po|sw)-\d{2,6}(?:-[A-Z]{2,4})?\b"),
     p(Kind::CRYPTO_WALLET, r"\b0x[a-fA-F0-9]{40}\b|\bbc1[ac-hj-np-z02-9]{25,62}\b|\b[13][a-km-zA-HJ-NP-Z1-9]{25,34}\b"),
     p(Kind::JWT, r"\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}"),
+    // MAC before IPV6: a colon-separated MAC also matches the IPv6 candidate
+    // shape (the IPv6 validator rejects it, but ordering keeps intent clear).
+    p(Kind::MAC_ADDRESS, r"\b[0-9A-Fa-f]{2}(?:[:\-][0-9A-Fa-f]{2}){5}\b"),
     p(Kind::IPV6, r"\b[A-Fa-f0-9]{1,4}(?::[A-Fa-f0-9]{0,4}){2,7}\b"),
     // ---- 3. Legacy generics -------------------------------------------------
     p(Kind::EMAIL,   r"\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b"),
@@ -134,7 +156,11 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
 ]);
 
 pub fn is_critical(k: &Kind) -> bool {
-    matches!(k, Kind::SSN | Kind::APIKEY | Kind::CREDITCARD | Kind::IBAN | Kind::PRIVATE_KEY)
+    matches!(
+        k,
+        Kind::SSN | Kind::APIKEY | Kind::CREDITCARD | Kind::IBAN | Kind::PRIVATE_KEY
+            | Kind::CONNECTION_STRING
+    )
 }
 
 /// Per-kind egress-block copy. The single source of truth for what the
@@ -174,6 +200,11 @@ pub fn block_policy(kind: &Kind) -> Option<BlockPolicy> {
             class: "CRITICAL_SECRET",
             desc: "Private keys must never leave this machine. Treat this key as compromised and rotate it before continuing.",
         }),
+        Kind::CONNECTION_STRING => Some(BlockPolicy {
+            rule: "Database credentials in outbound payload",
+            class: "CRITICAL_SECRET",
+            desc: "This connection string carries a live password in the URI. Rotate the credential and keep connection strings out of prompts — or switch to a local model.",
+        }),
         _ => None,
     }
 }
@@ -194,6 +225,11 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::SWIFT_BIC => validators::swift_country(raw),
         Kind::NPI => validators::npi(raw),
         Kind::DEA => validators::dea(raw),
+        Kind::CA_SIN => validators::ca_sin(raw),
+        Kind::UK_NHS => validators::uk_nhs(raw),
+        Kind::UK_NINO => validators::uk_nino(raw),
+        Kind::AU_TFN => validators::au_tfn(raw),
+        Kind::AADHAAR => validators::aadhaar(raw),
         Kind::DOB => validators::date_plausible(raw),
         Kind::IP => validators::ipv4_octets(raw),
         Kind::IPV6 => raw.parse::<std::net::Ipv6Addr>().is_ok(),
@@ -319,6 +355,74 @@ mod validators {
         if d.len() != 7 { return false; }
         let sum = (d[0] + d[2] + d[4]) + 2 * (d[1] + d[3] + d[5]);
         sum % 10 == d[6]
+    }
+
+    /// Canadian Social Insurance Number: 9 digits, Luhn.
+    pub fn ca_sin(raw: &str) -> bool {
+        let d = digits_of(raw);
+        d.len() == 9 && luhn(&d)
+    }
+
+    /// UK NHS number: 10 digits; mod-11 with weights 10..2; check digit is
+    /// 11 - (sum % 11), where 11 → 0 and 10 → invalid.
+    pub fn uk_nhs(raw: &str) -> bool {
+        let d = digits_of(raw);
+        if d.len() != 10 { return false; }
+        let sum: u32 = d[..9].iter().enumerate().map(|(i, &x)| x * (10 - i as u32)).sum();
+        let check = match 11 - (sum % 11) {
+            11 => 0,
+            10 => return false,
+            c => c,
+        };
+        check == d[9]
+    }
+
+    /// UK National Insurance number: two prefix letters (D/F/I/Q/U/V banned,
+    /// second letter additionally not O, a few pairs administratively
+    /// invalid), six digits, suffix A–D.
+    pub fn uk_nino(raw: &str) -> bool {
+        let s = raw.to_ascii_uppercase();
+        let b = s.as_bytes();
+        if b.len() != 9 { return false; }
+        let banned = |c: u8| matches!(c, b'D' | b'F' | b'I' | b'Q' | b'U' | b'V');
+        if banned(b[0]) || banned(b[1]) || b[1] == b'O' { return false; }
+        if matches!(&s[..2], "BG" | "GB" | "NK" | "KN" | "TN" | "NT" | "ZZ") { return false; }
+        true
+    }
+
+    /// Australian Tax File Number: 9 digits; weighted sum (1,4,3,7,5,8,6,9,10)
+    /// divisible by 11.
+    pub fn au_tfn(raw: &str) -> bool {
+        let d = digits_of(raw);
+        if d.len() != 9 { return false; }
+        const W: [u32; 9] = [1, 4, 3, 7, 5, 8, 6, 9, 10];
+        d.iter().zip(W).map(|(&x, w)| x * w).sum::<u32>() % 11 == 0
+    }
+
+    /// Indian Aadhaar: 12 digits, first 2–9, Verhoeff checksum.
+    pub fn aadhaar(raw: &str) -> bool {
+        let d = digits_of(raw);
+        if d.len() != 12 || d[0] < 2 { return false; }
+        verhoeff(&d)
+    }
+
+    fn verhoeff(digits: &[u32]) -> bool {
+        const D: [[u32; 10]; 10] = [
+            [0,1,2,3,4,5,6,7,8,9],[1,2,3,4,0,6,7,8,9,5],[2,3,4,0,1,7,8,9,5,6],
+            [3,4,0,1,2,8,9,5,6,7],[4,0,1,2,3,9,5,6,7,8],[5,9,8,7,6,0,4,3,2,1],
+            [6,5,9,8,7,1,0,4,3,2],[7,6,5,9,8,2,1,0,4,3],[8,7,6,5,9,3,2,1,0,4],
+            [9,8,7,6,5,4,3,2,1,0],
+        ];
+        const P: [[u32; 10]; 8] = [
+            [0,1,2,3,4,5,6,7,8,9],[1,5,7,6,2,8,3,0,9,4],[5,8,0,3,7,9,6,1,4,2],
+            [8,9,1,6,0,4,3,5,2,7],[9,4,5,3,1,2,6,8,7,0],[4,2,8,6,5,7,3,9,0,1],
+            [2,7,9,3,8,0,6,4,1,5],[7,0,4,6,9,1,3,2,5,8],
+        ];
+        let mut c: u32 = 0;
+        for (i, &digit) in digits.iter().rev().enumerate() {
+            c = D[c as usize][P[i % 8][digit as usize] as usize];
+        }
+        c == 0
     }
 
     /// Plausibility for anchored DOB values in any of the three matched
@@ -862,7 +966,69 @@ mod tests {
         let spans = run("link-local fe80::1ff:fe23:4567:890a");
         assert_eq!(spans.len(), 1);
         assert!(run("standup at 10:30:45 sharp").is_empty()); // time
-        assert!(run("MAC 00:1A:2B:3C:4D:5E").is_empty());      // MAC
+        // MACs are their own kind now — and must never classify as IPv6.
+        let spans = run("MAC 00:1A:2B:3C:4D:5E");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::MAC_ADDRESS));
+        let spans = run("nic at 00-1a-2b-3c-4d-5e");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::MAC_ADDRESS));
+    }
+
+    #[test]
+    fn connection_strings_with_credentials_block() {
+        for text in [
+            "broke prod: postgres://admin:hunter2@db.internal:5432/main",
+            "mongodb+srv://svc:S3cr3t@cluster0.example.net/app",
+            "redis://default:p4ss@cache.example.com:6379",
+        ] {
+            let spans = run(text);
+            assert_eq!(spans.len(), 1, "{text}");
+            assert!(matches!(spans[0].kind, Kind::CONNECTION_STRING), "{text}");
+            assert!(is_critical(&spans[0].kind));
+        }
+        // No credentials in the URI → not a secret; URL pattern may still alias.
+        let spans = run("postgres://db.internal:5432/main is the host");
+        assert!(spans.iter().all(|s| !matches!(s.kind, Kind::CONNECTION_STRING)));
+    }
+
+    #[test]
+    fn national_ids_checksum_validated() {
+        // CA SIN (Luhn)
+        let spans = run("SIN: 046 454 286 on the application");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::CA_SIN));
+        assert!(run("SIN: 046 454 287 noted").iter().all(|s| !matches!(s.kind, Kind::CA_SIN)));
+        // UK NHS (mod-11) — value is phone-shaped; the anchored kind must win.
+        let spans = run("NHS number: 943 476 5919");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::UK_NHS));
+        assert!(run("NHS number: 943 476 5918").iter().all(|s| !matches!(s.kind, Kind::UK_NHS)));
+        // UK NINO (structure rules)
+        let spans = run("national insurance no: AB123456C");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::UK_NINO));
+        // Banned prefix letter → not a NINO. (The "insurance no:" anchor
+        // still aliases the value as HEALTH_ID — over-redaction, safe.)
+        assert!(run("national insurance no: QQ123456C").iter().all(|s| !matches!(s.kind, Kind::UK_NINO)));
+        // AU TFN (weighted mod-11)
+        let spans = run("TFN: 123 456 782 for payroll");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::AU_TFN));
+        assert!(run("TFN: 123 456 789 invalid").iter().all(|s| !matches!(s.kind, Kind::AU_TFN)));
+        // Aadhaar (Verhoeff)
+        let spans = run("aadhaar no: 2341 2341 2346");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::AADHAAR));
+        assert!(run("aadhaar no: 2341 2341 2340").is_empty());
+        // US ITIN (structure: 9xx with valid group)
+        let spans = run("ITIN: 912-70-1234 filed");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::US_ITIN));
+        // 93 is not a valid ITIN group — but the bare SSN shape still catches
+        // it downstream, which is the safe direction.
+        let spans = run("ITIN: 912-93-1234 filed");
+        assert!(spans.iter().all(|s| !matches!(s.kind, Kind::US_ITIN)));
     }
 
     #[test]
@@ -881,9 +1047,11 @@ mod tests {
             Kind::EMAIL, Kind::PHONE, Kind::SSN, Kind::IP, Kind::APIKEY, Kind::URL,
             Kind::ADDRESS, Kind::MONEY, Kind::NAME, Kind::COMPANY, Kind::EMPID,
             Kind::CREDITCARD, Kind::IBAN, Kind::US_BANK, Kind::SWIFT_BIC, Kind::EIN,
-            Kind::JWT, Kind::PRIVATE_KEY, Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE,
+            Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING,
+            Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE,
+            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR,
             Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::CASE_NO,
-            Kind::CRYPTO_WALLET, Kind::IPV6, Kind::CUSTOM,
+            Kind::CRYPTO_WALLET, Kind::IPV6, Kind::MAC_ADDRESS, Kind::CUSTOM,
             Kind::PERSON_NER, Kind::ORG_NER, Kind::CODENAME_NER, Kind::LOCATION_NER,
             Kind::EMPID_NER,
         ];

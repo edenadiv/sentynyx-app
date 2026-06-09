@@ -89,14 +89,15 @@ or visit the hosted demo at **https://edenadiv.github.io/sentynyx-app/**. Type a
 
 Four layers run on every send and merge into one alias map:
 
-1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 27 patterns across six packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
+1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 36 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
 
 | Pack | Classes | Validation |
 | --- | --- | --- |
-| Core PII | email, phone, SSN†, IPv4/IPv6, URL, address, money, employee ID | octet ranges, IPv6 parse |
+| Core PII | email, phone, SSN†, IPv4/IPv6, MAC, URL, address, money, employee ID | octet ranges, IPv6 parse |
 | Payment / banking | credit card†, IBAN†, US routing + account, SWIFT/BIC, EIN | Luhn + brand lengths, mod-97, ABA checksum |
-| Secrets | API keys† (OpenAI/Anthropic/Google/AWS/GitHub/GitLab/Stripe/Slack…), JWTs, private-key blocks† | distinctive prefixes |
+| Secrets | API keys† (OpenAI/Anthropic/Google/AWS/GitHub/GitLab/Stripe/Slack…), JWTs, private-key blocks†, credentialed DB connection strings† | distinctive prefixes, URI credential shape |
 | Identity | date of birth, passport, driver's license | context anchors + date plausibility |
+| National IDs | US ITIN, Canadian SIN, UK NHS + National Insurance, Australian TFN, Aadhaar | Luhn, NHS mod-11, TFN weighted mod-11, Verhoeff |
 | Medical | MRN, NPI, DEA, insurance member ID | NPI + DEA checksums |
 | Legal / crypto | case & docket numbers, BTC/ETH wallets | Base58Check |
 

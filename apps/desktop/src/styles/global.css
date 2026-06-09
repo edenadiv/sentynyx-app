@@ -125,24 +125,28 @@ button { font-family:inherit; color:inherit; }
 }
 
 /* Secrets — magenta */
-.vend-hit.vend-JWT, .vend-hit.vend-PRIVATE_KEY {
+.vend-hit.vend-JWT, .vend-hit.vend-PRIVATE_KEY, .vend-hit.vend-CONNECTION_STRING {
   background: rgba(255, 94, 196, 0.20); color: #ff5ec4;
   border-bottom-color: rgba(255, 94, 196, 0.6);
   box-shadow: 0 0 6px rgba(255, 94, 196, 0.25);
   text-shadow: 0 0 10px rgba(255, 94, 196, 0.5);
 }
-.vend-hit.vend-JWT::before, .vend-hit.vend-PRIVATE_KEY::before {
+.vend-hit.vend-JWT::before, .vend-hit.vend-PRIVATE_KEY::before, .vend-hit.vend-CONNECTION_STRING::before {
   background: linear-gradient(90deg, transparent, rgba(255, 94, 196, 0.4), transparent);
 }
 
-/* Identity documents — violet */
-.vend-hit.vend-DOB, .vend-hit.vend-PASSPORT, .vend-hit.vend-DRIVERS_LICENSE {
+/* Identity documents + national IDs — violet */
+.vend-hit.vend-DOB, .vend-hit.vend-PASSPORT, .vend-hit.vend-DRIVERS_LICENSE,
+.vend-hit.vend-US_ITIN, .vend-hit.vend-CA_SIN, .vend-hit.vend-UK_NHS,
+.vend-hit.vend-UK_NINO, .vend-hit.vend-AU_TFN, .vend-hit.vend-AADHAAR {
   background: rgba(180, 140, 255, 0.20); color: #b48cff;
   border-bottom-color: rgba(180, 140, 255, 0.6);
   box-shadow: 0 0 6px rgba(180, 140, 255, 0.25);
   text-shadow: 0 0 10px rgba(180, 140, 255, 0.5);
 }
-.vend-hit.vend-DOB::before, .vend-hit.vend-PASSPORT::before, .vend-hit.vend-DRIVERS_LICENSE::before {
+.vend-hit.vend-DOB::before, .vend-hit.vend-PASSPORT::before, .vend-hit.vend-DRIVERS_LICENSE::before,
+.vend-hit.vend-US_ITIN::before, .vend-hit.vend-CA_SIN::before, .vend-hit.vend-UK_NHS::before,
+.vend-hit.vend-UK_NINO::before, .vend-hit.vend-AU_TFN::before, .vend-hit.vend-AADHAAR::before {
   background: linear-gradient(90deg, transparent, rgba(180, 140, 255, 0.4), transparent);
 }
 
@@ -170,13 +174,13 @@ button { font-family:inherit; color:inherit; }
 }
 
 /* Crypto / network — sky */
-.vend-hit.vend-CRYPTO_WALLET, .vend-hit.vend-IPV6 {
+.vend-hit.vend-CRYPTO_WALLET, .vend-hit.vend-IPV6, .vend-hit.vend-MAC_ADDRESS {
   background: rgba(56, 189, 248, 0.20); color: #38bdf8;
   border-bottom-color: rgba(56, 189, 248, 0.6);
   box-shadow: 0 0 6px rgba(56, 189, 248, 0.25);
   text-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
 }
-.vend-hit.vend-CRYPTO_WALLET::before, .vend-hit.vend-IPV6::before {
+.vend-hit.vend-CRYPTO_WALLET::before, .vend-hit.vend-IPV6::before, .vend-hit.vend-MAC_ADDRESS::before {
   background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.4), transparent);
 }
 

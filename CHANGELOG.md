@@ -8,6 +8,15 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **International national-ID pack + infrastructure classes** (`vendetta.rs`).
+  US ITIN, Canadian SIN (Luhn), UK NHS number (mod-11), UK National
+  Insurance number (structure rules), Australian TFN (weighted mod-11),
+  and Aadhaar (Verhoeff) — all context-anchored and checksum-validated,
+  modeled on the Presidio/DLP entity catalogs. Plus MAC addresses and
+  **credentialed database connection strings**
+  (`postgres://user:pass@host`, mongodb/redis/amqp…), which carry live
+  passwords and therefore **block egress** like API keys. Engine now
+  spans **36 patterns across 7 packs**.
 - **18 new detection classes across 6 industry packs** (`vendetta.rs`).
   Payment/banking: credit cards (Luhn + per-brand length validation,
   **blocks egress**), IBAN (mod-97, **blocks**), US routing/account numbers

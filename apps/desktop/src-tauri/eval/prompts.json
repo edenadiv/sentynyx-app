@@ -180,8 +180,24 @@
     {"id":"cw003","text":"commit 3353c3e fixed the race","expected":[]},
 
     {"id":"v6001","text":"node at 2001:0db8:85a3:0000:0000:8a2e:0370:7334 responding","expected":[{"kind":"IPV6","raw":"2001:0db8:85a3:0000:0000:8a2e:0370:7334"}]},
-    {"id":"v6002","text":"MAC 00:1A:2B:3C:4D:5E registered","expected":[]},
+    {"id":"v6002","text":"MAC 00:1A:2B:3C:4D:5E registered","expected":[{"kind":"MAC_ADDRESS","raw":"00:1A:2B:3C:4D:5E"}],"note":"MACs are their own kind — and must never classify as IPv6"},
     {"id":"v6003","text":"standup at 10:30:45 sharp","expected":[]},
+    {"id":"mac001","text":"nic 00-1a-2b-3c-4d-5e flapped overnight","expected":[{"kind":"MAC_ADDRESS","raw":"00-1a-2b-3c-4d-5e"}]},
+
+    {"id":"cs001","text":"broke prod: postgres://admin:hunter2@db.internal:5432/main","expected":[{"kind":"CONNECTION_STRING","raw":"postgres://admin:hunter2@db.internal:5432"}],"note":"credentialed URI blocks egress; span ends at the first path slash"},
+    {"id":"cs002","text":"mongodb+srv://svc:S3cr3t@cluster0.example.net/app timed out","expected":[{"kind":"CONNECTION_STRING","raw":"mongodb+srv://svc:S3cr3t@cluster0.example.net"}]},
+    {"id":"cs003","text":"redis://cache.example.com:6379 has no auth configured","expected":[],"note":"no credentials in the URI — not a secret (scheme isn't http, so URL doesn't fire either)"},
+
+    {"id":"ni001","text":"SIN: 046 454 286 on the application","expected":[{"kind":"CA_SIN","raw":"046 454 286"}]},
+    {"id":"ni002","text":"SIN: 046 454 287 fails the checksum","expected":[],"note":"Luhn fail"},
+    {"id":"ni003","text":"NHS number: 943 476 5919 admitted","expected":[{"kind":"UK_NHS","raw":"943 476 5919"}],"note":"phone-shaped value — anchored NHS must win the tie"},
+    {"id":"ni004","text":"NHS number: 943 476 5918 is invalid","expected":[{"kind":"PHONE","raw":"943 476 5918"}],"note":"mod-11 fail → not NHS; the bare 10-digit run is legitimately claimed by PHONE (safe over-redaction)"},
+    {"id":"ni005","text":"national insurance no: AB123456C on file","expected":[{"kind":"UK_NINO","raw":"AB123456C"}]},
+    {"id":"ni006","text":"TFN: 123 456 782 for payroll","expected":[{"kind":"AU_TFN","raw":"123 456 782"}]},
+    {"id":"ni007","text":"TFN: 123 456 789 rejected by the ATO","expected":[],"note":"weighted mod-11 fail"},
+    {"id":"ni008","text":"aadhaar no: 2341 2341 2346 verified","expected":[{"kind":"AADHAAR","raw":"2341 2341 2346"}]},
+    {"id":"ni009","text":"aadhaar no: 2341 2341 2340 mistyped","expected":[],"note":"Verhoeff fail"},
+    {"id":"ni010","text":"ITIN: 912-70-1234 filed with the return","expected":[{"kind":"US_ITIN","raw":"912-70-1234"}]},
 
     {"id":"x001","text":"Refund $5,250 to card 4242 4242 4242 4242 for the May order","expected":[{"kind":"MONEY","raw":"$5,250"},{"kind":"CREDITCARD","raw":"4242 4242 4242 4242"}]},
     {"id":"x002","text":"Patient MRN: 7782-A, DOB: 03/22/1964, member ID: BCB-449-2210","expected":[{"kind":"MRN","raw":"7782-A"},{"kind":"DOB","raw":"03/22/1964"},{"kind":"HEALTH_ID","raw":"BCB-449-2210"}]},
