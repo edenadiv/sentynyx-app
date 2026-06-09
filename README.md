@@ -61,7 +61,7 @@ pnpm tauri dev                # dev window with hot reload
 pnpm tauri build              # → .dmg / .exe / .AppImage
 ```
 
-Linux build deps: see [Build details](#build-details). Full walkthrough in **[TUTORIAL.md](TUTORIAL.md)** — and the app itself opens with a **2-minute guided tour** (re-run anytime: ⌘K → "Take the guided tour").
+Windows additionally needs the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) (local inference uses the Vulkan backend; CI installs it the same way). Linux build deps: see [Build details](#build-details). Full walkthrough in **[TUTORIAL.md](TUTORIAL.md)** — and the app itself opens with a **2-minute guided tour** (re-run anytime: ⌘K → "Take the guided tour").
 
 ## Three ways to run a model
 
@@ -133,6 +133,11 @@ scripts/                 # install.sh
 ## Build details
 
 The NER sidecar (`apps/desktop/src-tauri/binaries/sentynyx-ner-*`) is built by `apps/desktop/scripts/stage-sidecar.sh` (it's git-ignored). Detection model weights download on first launch from Hugging Face and are SHA-verified — no large blobs in the repo.
+
+Windows build deps: the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) —
+`llama.cpp` local inference compiles its Vulkan backend (broadest GPU support on
+Windows), and its build script requires `VULKAN_SDK` to be set. The
+`cargo-check-windows` CI job installs it the same way and is the reference recipe.
 
 Linux build deps:
 

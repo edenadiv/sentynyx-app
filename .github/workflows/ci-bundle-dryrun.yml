@@ -126,6 +126,18 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force binaries | Out-Null
           Set-Content -Path binaries/sentynyx-ner-x86_64-pc-windows-msvc.exe -Value 'stub'
+      # llama-cpp-sys-2 builds the Vulkan backend on Windows (see the
+      # target-specific features in src-tauri/Cargo.toml) and its build
+      # script hard-requires VULKAN_SDK. Same prerequisite the README
+      # gives Windows source-builders — official LunarG silent install.
+      - name: Install Vulkan SDK
+        shell: pwsh
+        run: |
+          curl.exe -sSL -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe
+          Start-Process -FilePath .\vulkan-sdk.exe -ArgumentList '--accept-licenses','--default-answer','--confirm-command','install' -Wait
+          $sdk = (Get-ChildItem C:\VulkanSDK -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName
+          "VULKAN_SDK=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "$sdk\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
       - name: cargo check
         working-directory: apps/desktop/src-tauri
         shell: pwsh
