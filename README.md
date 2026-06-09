@@ -110,7 +110,7 @@ Four layers run on every send and merge into one alias map:
 
 Built-ins win on overlap, then watchlist, then NER ([`merge_spans`](apps/desktop/src-tauri/src/detect/mod.rs)). Aliases are stable per conversation and use `⟦…⟧` math brackets so the model doesn't mistake them for template variables. Streaming responses are re-hydrated across token boundaries.
 
-Everything persists to local SQLite with a SHA-256 hash-chained audit log. Quality is CI-gated by a [165-fixture eval corpus](apps/desktop/src-tauri/eval) with negative cases per class: **precision 0.898 · recall 0.851 · p99 17 ms · zero misses on blocking classes** (and regex+NER **F1 0.853 vs Presidio 0.642** on the published benchmark).
+Everything persists to local SQLite with a SHA-256 hash-chained audit log. Quality is CI-gated by a [182-fixture eval corpus](apps/desktop/src-tauri/eval) with negative cases per class: **precision 0.894 · recall 0.864 · p99 17 ms · zero misses on blocking classes** (and regex+NER **F1 0.853 vs Presidio 0.642** on the published benchmark).
 
 ## What's real vs. roadmap
 
