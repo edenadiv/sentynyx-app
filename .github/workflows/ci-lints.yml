@@ -46,8 +46,11 @@ jobs:
       # see docs/eng/clippy-cleanup-ADR.md (to be written). For now we
       # want clippy catching NEW errors, not retroactively lighting up
       # every file.
+      # Explicit feature list, NOT --all-features: `windows-vulkan` exists
+      # for Windows GPU builds and would force llama.cpp's Vulkan backend on
+      # this macOS runner (GGML_VULKAN=ON -> configure fails without the SDK).
       - name: clippy
-        run: cargo clippy --all-targets --all-features -- -W warnings
+        run: cargo clippy --all-targets --features team-cloud,live-llm-test,live-ner-test -- -W warnings
       - name: cargo test (lib)
         run: cargo test --lib
 
