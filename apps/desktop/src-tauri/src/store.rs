@@ -38,6 +38,16 @@ pub struct AuditMetrics {
 }
 
 impl Store {
+    /// Open a store at an explicit path — tests and tools; the app itself
+    /// always goes through `open_default`.
+    #[allow(dead_code)]
+    pub(crate) fn open_at(path: &std::path::Path) -> Result<Self, rusqlite::Error> {
+        let conn = Connection::open(path)?;
+        let s = Store { conn };
+        s.migrate()?;
+        Ok(s)
+    }
+
     pub fn open_default() -> anyhow::Result<Self, rusqlite::Error> {
         let path = default_db_path();
         if let Some(dir) = path.parent() { let _ = std::fs::create_dir_all(dir); }

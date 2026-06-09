@@ -6,7 +6,9 @@ pub mod custom;
 
 use async_trait::async_trait;
 use serde::Serialize;
-use crate::vendetta::{Kind, Span};
+use crate::vendetta::Span;
+#[cfg(test)]
+use crate::vendetta::Kind;
 
 #[derive(Debug, thiserror::Error)]
 pub enum DetectError {

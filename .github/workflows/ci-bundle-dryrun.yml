@@ -107,11 +107,14 @@ jobs:
         run: cargo check --all-targets
 
   # --- Rust check on Windows --------------------------------------------
-  # Enabled now that vendor/onnxruntime/win-x64/onnxruntime.dll is committed
-  # (1.22.0, sha256 579b6364…). Proves the "Windows builds from source"
-  # claim on every PR. Like the macOS job, the NER sidecar external binary
-  # is stubbed — tauri-build validates its existence; cargo check never
-  # executes it.
+  # Verifies the DEFAULT Windows source build (CPU local inference; the
+  # vendored ONNX Runtime DLL is committed). GPU is the opt-in
+  # `windows-vulkan` feature and is deliberately NOT exercised here: its
+  # vulkan-shaders-gen sub-build needs the Vulkan SDK and reproducibly
+  # trips MSVC C1041 PDB races on stock runners — four attempts (vendored
+  # SDK install, CFLAGS=/FS, Ninja generator) all failed the same way.
+  # Like the macOS job, the NER sidecar external binary is stubbed —
+  # tauri-build validates its existence; cargo check never executes it.
   cargo-check-windows:
     needs: config-assets
     runs-on: windows-latest
@@ -126,35 +129,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force binaries | Out-Null
           Set-Content -Path binaries/sentynyx-ner-x86_64-pc-windows-msvc.exe -Value 'stub'
-      # llama-cpp-sys-2 builds the Vulkan backend on Windows (see the
-      # target-specific features in src-tauri/Cargo.toml) and its build
-      # script hard-requires VULKAN_SDK. Same prerequisite the README
-      # gives Windows source-builders — official LunarG silent install.
-      - name: Install Vulkan SDK
-        shell: pwsh
-        run: |
-          curl.exe -sSL -o vulkan-sdk.exe https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe
-          Start-Process -FilePath .\vulkan-sdk.exe -ArgumentList '--accept-licenses','--default-answer','--confirm-command','install' -Wait
-          $sdk = (Get-ChildItem C:\VulkanSDK -Directory | Sort-Object Name -Descending | Select-Object -First 1).FullName
-          "VULKAN_SDK=$sdk" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "$sdk\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-      # vcvars64 so Ninja can drive cl.exe directly. The default MSBuild
-      # generator trips MSVC C1041 PDB races inside llama.cpp's
-      # vulkan-shaders-gen ExternalProject (CFLAGS=/FS never reaches its
-      # TryCompile); CMake's Ninja generator adds /FS itself and has no
-      # vcxproj scratch-PDB contention — it's what llama.cpp's own Windows
-      # CI builds with.
-      - uses: ilammy/msvc-dev-cmd@v1
-      - name: Ensure ninja
-        shell: pwsh
-        run: |
-          if (-not (Get-Command ninja -ErrorAction SilentlyContinue)) {
-            choco install ninja -y --no-progress | Out-Null
-          }
-          ninja --version
       - name: cargo check
         working-directory: apps/desktop/src-tauri
         shell: pwsh
-        env:
-          CMAKE_GENERATOR: Ninja
         run: cargo check --all-targets

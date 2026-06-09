@@ -26,7 +26,7 @@ async fn read_setting_u64(
 }
 
 /// Resolve the configured Ollama base URL, defaulting to the local daemon.
-async fn read_ollama_base_url(
+pub(crate) async fn read_ollama_base_url(
     store: &std::sync::Arc<tokio::sync::Mutex<crate::store::Store>>,
 ) -> String {
     let s = store.lock().await;
@@ -43,7 +43,7 @@ async fn read_ollama_base_url(
 /// Packs the user switched off in Settings (`disabled_packs` = JSON array).
 /// Sanitized against TOGGLEABLE_PACKS so the core/secrets safety floor can
 /// never be disabled, even by hand-editing the settings table.
-async fn read_disabled_packs(
+pub(crate) async fn read_disabled_packs(
     store: &std::sync::Arc<tokio::sync::Mutex<crate::store::Store>>,
 ) -> std::collections::HashSet<String> {
     let s = store.lock().await;
@@ -59,7 +59,7 @@ async fn read_disabled_packs(
         .unwrap_or_default()
 }
 
-fn filter_disabled_packs(
+pub(crate) fn filter_disabled_packs(
     spans: Vec<Span>,
     disabled: &std::collections::HashSet<String>,
 ) -> Vec<Span> {
@@ -891,6 +891,48 @@ pub async fn ollama_health(state: State<'_, AppState>) -> Result<OllamaHealth, S
         }
         _ => Ok(OllamaHealth { reachable: false, base_url: base, model_count: 0 }),
     }
+}
+
+// ---------------------------------------------------------------------------
+// Privacy proxy lifecycle. The proxy module owns the listener; these commands
+// only flip it and persist the user's preference so lib.rs can autostart it.
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize)]
+pub struct ProxyStatus { pub running: bool, pub port: Option<u16> }
+
+#[tauri::command]
+pub async fn proxy_status() -> Result<ProxyStatus, String> {
+    let port = crate::proxy::status().await;
+    Ok(ProxyStatus { running: port.is_some(), port })
+}
+
+#[tauri::command]
+pub async fn proxy_start(state: State<'_, AppState>, port: Option<u16>) -> Result<ProxyStatus, String> {
+    let port = port.unwrap_or(crate::proxy::DEFAULT_PORT);
+    let bound = crate::proxy::start(state.store.clone(), port).await?;
+    {
+        let s = state.store.lock().await;
+        let _ = s.conn.execute(
+            "INSERT INTO settings(key,value) VALUES('proxy_enabled','1')
+             ON CONFLICT(key) DO UPDATE SET value='1'", []);
+        let _ = s.conn.execute(
+            "INSERT INTO settings(key,value) VALUES('proxy_port',?1)
+             ON CONFLICT(key) DO UPDATE SET value=?1", [bound.to_string()]);
+    }
+    Ok(ProxyStatus { running: true, port: Some(bound) })
+}
+
+#[tauri::command]
+pub async fn proxy_stop(state: State<'_, AppState>) -> Result<ProxyStatus, String> {
+    crate::proxy::stop().await;
+    {
+        let s = state.store.lock().await;
+        let _ = s.conn.execute(
+            "INSERT INTO settings(key,value) VALUES('proxy_enabled','0')
+             ON CONFLICT(key) DO UPDATE SET value='0'", []);
+    }
+    Ok(ProxyStatus { running: false, port: None })
 }
 
 #[tauri::command]

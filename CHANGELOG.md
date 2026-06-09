@@ -8,6 +8,14 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **Privacy proxy**: an OpenAI-compatible endpoint on `127.0.0.1` (Settings →
+  Privacy proxy, default port 4242). Any tool with a `base_url` setting —
+  Cursor, Continue, SDK scripts — gets the full perimeter: detection +
+  aliasing + critical blocks on the way out, de-aliased responses on the way
+  back, audit-chain entries (source `proxy`) throughout. Loopback-only by
+  construction, zero new dependencies (hand-rolled HTTP/1.1 on tokio),
+  `ollama:*` models stay zero-egress. The desktop app stops being the only
+  place the perimeter exists.
 - **VIN + Medicare MBI detection**: vehicle identification numbers are caught
   unanchored via the ISO 3779 check digit (identity pack); Medicare Beneficiary
   Identifiers via a `medicare:`/`mbi:` anchor plus the CMS per-position
@@ -19,8 +27,10 @@ on an **open-core** model (see `OPEN-CORE.md`).
   egress. 39th pattern, secrets pack (safety floor, not toggleable).
 - **Windows source builds are CI-verified**: the ONNX Runtime win-x64 DLL
   (1.22.0, SHA-recorded) is now vendored and the previously-disabled
-  `cargo-check-windows` job runs on every PR, installing the Vulkan SDK the
-  same way the README tells source-builders to.
+  `cargo-check-windows` job runs on every PR. The default Windows build is
+  CPU local inference (no extra SDKs); GPU is the opt-in `windows-vulkan`
+  feature (Vulkan SDK required), mirroring llama.cpp upstream's explicit
+  backend selection.
 - **OpenRouter provider**: one `sk-or-` key unlocks the open-model catalog —
   Llama 4 Maverick, DeepSeek V4 Pro, Mistral Large, Qwen3.7 Plus, and
   Command A ship in the picker (ids verified against the live catalog),

@@ -61,7 +61,7 @@ pnpm tauri dev                # dev window with hot reload
 pnpm tauri build              # → .dmg / .exe / .AppImage
 ```
 
-Windows additionally needs the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) (local inference uses the Vulkan backend; CI installs it the same way). Linux build deps: see [Build details](#build-details). Full walkthrough in **[TUTORIAL.md](TUTORIAL.md)** — and the app itself opens with a **2-minute guided tour** (re-run anytime: ⌘K → "Take the guided tour").
+Windows builds CPU-local-inference by default (no extra SDKs; CI-verified); for GPU add `--features windows-vulkan` with the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) installed. Linux build deps: see [Build details](#build-details). Full walkthrough in **[TUTORIAL.md](TUTORIAL.md)** — and the app itself opens with a **2-minute guided tour** (re-run anytime: ⌘K → "Take the guided tour").
 
 ## Three ways to run a model
 
@@ -70,6 +70,16 @@ Windows additionally needs the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#w
 | **BYOK cloud** | Your own OpenAI / Anthropic / Google / xAI / OpenRouter key — 14 built-in models incl. Llama, DeepSeek, Mistral, Qwen, Command. | Aliased payload only | Settings (⌘,) → paste key → stored in OS keychain |
 | **Ollama** 🆕 | Any model you've `ollama pull`-ed, running locally. | **Zero** (loopback) | Install [Ollama](https://ollama.com), `ollama pull llama3.2`, it auto-appears in the picker |
 | **Sentynyx Local** | Bundled on-device model (Qwen 2.5). | **Zero** | Download once from Settings → Models |
+
+**🆕 Privacy proxy — bring the perimeter to your other tools.** Settings → Privacy proxy starts an OpenAI-compatible endpoint on `http://127.0.0.1:4242/v1` (loopback only). Point Cursor, Continue, `openai`-SDK scripts — anything with a `base_url` setting — at it and their prompts get the same detection → aliasing → block pipeline; providers see aliases, your tool gets real values back:
+
+```python
+from openai import OpenAI
+client = OpenAI(base_url="http://127.0.0.1:4242/v1", api_key="unused")
+r = client.chat.completions.create(model="claude-sonnet",
+    messages=[{"role": "user", "content": "draft a reply to dana.reyes@acme.com"}])
+# Anthropic saw ⟦email_01⟧; r already has the real address back.
+```
 
 With a **localhost Ollama** server (or Sentynyx Local), nothing leaves the machine, so prompts are sent raw — no aliasing needed. Point Ollama at a **remote** host and Sentynyx automatically treats it as egress: the prompt is aliased and scanned like any cloud provider. (The decision is made in Rust, fail-closed — see `ollama_host_is_local` in [`commands.rs`](apps/desktop/src-tauri/src/commands.rs).)
 
@@ -134,12 +144,13 @@ scripts/                 # install.sh
 
 The NER sidecar (`apps/desktop/src-tauri/binaries/sentynyx-ner-*`) is built by `apps/desktop/scripts/stage-sidecar.sh` (it's git-ignored). Detection model weights download on first launch from Hugging Face and are SHA-verified — no large blobs in the repo.
 
-Windows build deps: the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) —
-`llama.cpp` local inference compiles its Vulkan backend (broadest GPU support on
-Windows), and its build script requires `VULKAN_SDK` to be set. Build from a
-*Developer PowerShell* with `CMAKE_GENERATOR=Ninja` (the MSBuild generator is
-prone to MSVC C1041 PDB races in llama.cpp's shader sub-build). The
-`cargo-check-windows` CI job does exactly this and is the reference recipe.
+Windows: the default build runs local inference on CPU and needs no extra
+SDKs (`cargo-check-windows` CI verifies it on every PR). For GPU-accelerated
+local inference, build with `--features windows-vulkan` — that compiles
+`llama.cpp`'s Vulkan backend, which needs the
+[Vulkan SDK](https://vulkan.lunarg.com/sdk/home#windows) (`VULKAN_SDK` set),
+a *Developer PowerShell*, and ideally `CMAKE_GENERATOR=Ninja` (the MSBuild
+generator is prone to MSVC C1041 PDB races in the shader sub-build).
 
 Linux build deps:
 

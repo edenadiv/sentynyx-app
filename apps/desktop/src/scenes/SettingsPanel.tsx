@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
-import { ipc, isTauri, modelsIpc, onModelProgress, onModelReady, dataIpc, telemetryIpc, teamIpc, settingsIpc, buildInfoIpc, ollamaIpc, type TeamStatus, type SyncOutcome, type BuildInfo, type OllamaHealth } from "../lib/ipc";
+import { ipc, isTauri, modelsIpc, onModelProgress, onModelReady, dataIpc, telemetryIpc, teamIpc, settingsIpc, buildInfoIpc, ollamaIpc, proxyIpc, type TeamStatus, type SyncOutcome, type BuildInfo, type OllamaHealth, type ProxyStatus } from "../lib/ipc";
 import { setCustomTerms, setDisabledPacks, TOGGLEABLE_PACKS } from "../lib/vendetta";
 import type { AllModelStatus } from "../lib/types";
 import { modelStatusKind } from "../lib/types";
@@ -186,6 +186,8 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
         <WatchlistSection />
         <DataSection />
         <OllamaSection />
+
+        <ProxySection />
         {caps?.telemetry_available && <TelemetrySection />}
 
         {caps?.team_cloud && <TeamSection />}
@@ -501,6 +503,86 @@ function WatchlistSection() {
             }}>{status}</span>
           )}
         </div>
+      </div>
+    </section>
+  );
+}
+
+
+function ProxySection() {
+  const [running, setRunning] = useState(false);
+  const [port, setPort] = useState("4242");
+  const [status, setStatus] = useState<string | null>(null);
+
+  const refresh = async () => {
+    if (!isTauri) { setStatus("browser preview — run the app to use the proxy"); return; }
+    try {
+      const s: ProxyStatus = await proxyIpc.status();
+      setRunning(s.running);
+      if (s.port) setPort(String(s.port));
+    } catch (e) { setStatus(`✗ ${String(e)}`); }
+  };
+
+  const toggle = async () => {
+    if (!isTauri) return;
+    setStatus(running ? "stopping…" : "starting…");
+    try {
+      const s = running
+        ? await proxyIpc.stop()
+        : await proxyIpc.start(parseInt(port, 10) || undefined);
+      setRunning(s.running);
+      if (s.port) setPort(String(s.port));
+      setStatus(s.running ? `✓ listening on 127.0.0.1:${s.port}` : "stopped");
+    } catch (e) { setStatus(`✗ ${String(e)}`); }
+  };
+
+  useEffect(() => {
+    if (!isTauri) return;
+    settingsIpc.get("proxy_port").then(v => { if (v) setPort(v); }).catch(() => {}).finally(refresh);
+  }, []);
+
+  return (
+    <section style={{ marginTop: 32 }}>
+      <h3 style={{ fontFamily: "Instrument Serif, serif", fontSize: 20, margin: "0 0 12px" }}>
+        Privacy proxy
+      </h3>
+      <div style={{
+        padding: 12, background: "#0a0d14",
+        border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4,
+      }}>
+        <div style={{ fontSize: 11, color: "#9ba3b4", lineHeight: 1.5, marginBottom: 10 }}>
+          An OpenAI-compatible endpoint on this machine. Point any tool&apos;s{" "}
+          <code style={st.codeInline}>base_url</code> at{" "}
+          <code style={st.codeInline}>http://127.0.0.1:{port}/v1</code> and its prompts get the full
+          perimeter: detection, aliasing, and critical-data blocks — providers see aliases, the tool
+          gets real values back. Loopback only; never reachable from the network.
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            placeholder="4242"
+            value={port}
+            disabled={running}
+            onChange={e => setPort(e.target.value.replace(/[^0-9]/g, ""))}
+            style={{ ...st.input, width: 90, opacity: running ? 0.5 : 1 }}
+          />
+          <button onClick={toggle} style={running ? st.ghostBtn : st.saveBtn}>
+            {running ? "Stop proxy" : "Start proxy"}
+          </button>
+          {running && (
+            <span style={{ fontSize: 11, color: "#7cffb2", fontFamily: "'JetBrains Mono', monospace" }}>
+              ● live · 127.0.0.1:{port}/v1
+            </span>
+          )}
+        </div>
+
+        {status && (
+          <div style={{
+            fontSize: 11, marginTop: 8,
+            color: status.startsWith("✓") ? "#7cffb2" : status.startsWith("✗") ? "#ff99a8" : "#9ba3b4",
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>{status}</div>
+        )}
       </div>
     </section>
   );

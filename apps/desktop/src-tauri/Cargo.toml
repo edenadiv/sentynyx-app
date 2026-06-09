@@ -28,6 +28,14 @@ team-cloud = ["dep:sentry", "dep:ed25519-dalek", "dep:rand", "dep:base64"]
 #     cargo test --lib --features live-llm-test paranoid_scan
 live-llm-test = []
 live-ner-test = []
+# Windows GPU acceleration for local inference (llama.cpp Vulkan backend).
+# Opt-in, mirroring llama.cpp upstream where GPU backends are explicit:
+# the default Windows build is CPU and needs no Vulkan SDK; release/GPU
+# builds pass `--features windows-vulkan` with VULKAN_SDK set (build from a
+# Developer PowerShell; Ninja generator recommended). Kept out of default
+# because the vulkan-shaders-gen sub-build needs the SDK and is fragile on
+# stock CI runners (MSVC C1041 PDB races) — see ci-bundle-dryrun.yml history.
+windows-vulkan = ["llama-cpp-2/vulkan"]
 
 [lib]
 name = "sentynyx_lib"
@@ -92,14 +100,13 @@ strip = true
 # Platform-specific llama-cpp-2 acceleration features.
 #
 # macOS:   Metal (always — M1/M2/Intel Macs all support it).
-# Windows: Vulkan by default (broadest GPU support; works on ~95% of
-#          Windows laptops manufactured in the last 8 years). Falls back
-#          to CPU automatically when no Vulkan-capable GPU is present.
+# Windows: CPU by default; Vulkan via `--features windows-vulkan` (broadest
+#          GPU support; works on ~95% of Windows laptops from the last
+#          8 years). Opt-in — see the [features] section above. llama.cpp
+#          falls back to CPU automatically when no capable GPU is present.
 # Linux:   CPU for now — Phase 3.1 follow-up adds optional `--features cuda`.
 [target.'cfg(target_os = "macos")'.dependencies]
 llama-cpp-2 = { version = "0.1", default-features = false, features = ["metal"] }
-[target.'cfg(target_os = "windows")'.dependencies]
-llama-cpp-2 = { version = "0.1", default-features = false, features = ["vulkan"] }
 
 [[bin]]
 name = "eval"

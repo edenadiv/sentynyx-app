@@ -163,6 +163,21 @@ export const ollamaIpc = {
   health: () => invoke<OllamaHealth>("ollama_health"),
 };
 
+export interface ProxyStatus {
+  running: boolean;
+  port: number | null;
+}
+
+/// Local privacy proxy — an OpenAI-compatible endpoint on 127.0.0.1 so other
+/// apps (Cursor, scripts, SDKs) get the Vendetta perimeter by pointing their
+/// base_url at Sentynyx. Loopback-only by construction; preference persists
+/// under `proxy_enabled` / `proxy_port` and autostarts with the app.
+export const proxyIpc = {
+  status: () => invoke<ProxyStatus>("proxy_status"),
+  start: (port?: number) => invoke<ProxyStatus>("proxy_start", { port }),
+  stop: () => invoke<ProxyStatus>("proxy_stop"),
+};
+
 export interface SystemStats {
   rss_mb: number;
   uptime_sec: number;

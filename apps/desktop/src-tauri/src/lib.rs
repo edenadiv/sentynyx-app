@@ -5,6 +5,7 @@ mod keys;
 mod router;
 mod providers;
 mod commands;
+mod proxy;
 pub mod detect;
 pub mod models;
 #[cfg(feature = "team-cloud")]
@@ -118,6 +119,29 @@ pub fn run() {
                 });
             }
 
+            // Privacy proxy autostart — honors the persisted toggle so the
+            // loopback endpoint is up before any client's first request.
+            {
+                let proxy_store = Arc::clone(&store_arc);
+                tauri::async_runtime::spawn(async move {
+                    let (enabled, port) = {
+                        let s = proxy_store.lock().await;
+                        let enabled = s.conn.query_row::<String, _, _>(
+                            "SELECT value FROM settings WHERE key='proxy_enabled'", [], |r| r.get(0),
+                        ).map(|v| v == "1").unwrap_or(false);
+                        let port = s.conn.query_row::<String, _, _>(
+                            "SELECT value FROM settings WHERE key='proxy_port'", [], |r| r.get(0),
+                        ).ok().and_then(|v| v.parse().ok()).unwrap_or(proxy::DEFAULT_PORT);
+                        (enabled, port)
+                    };
+                    if enabled {
+                        if let Err(e) = proxy::start(proxy_store, port).await {
+                            eprintln!("[proxy] autostart failed: {e}");
+                        }
+                    }
+                });
+            }
+
             // Idle-unload supervisor is disabled while NER runs in-process:
             // `NerDetector` caches the ORT session in a OnceLock for lifetime
             // sharing with `spawn_blocking`, which doesn't expose a safe
@@ -160,6 +184,9 @@ pub fn run() {
         commands::build_info,
         commands::ollama_list_models,
         commands::ollama_health,
+        commands::proxy_start,
+        commands::proxy_stop,
+        commands::proxy_status,
         commands::team_status,
         commands::team_generate_signing_key,
         commands::team_configure,
@@ -197,6 +224,9 @@ pub fn run() {
         commands::build_info,
         commands::ollama_list_models,
         commands::ollama_health,
+        commands::proxy_start,
+        commands::proxy_stop,
+        commands::proxy_status,
     ]);
 
     builder

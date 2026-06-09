@@ -115,7 +115,35 @@ Open **Settings** (`⌘,`):
 
 ---
 
-## 7. Troubleshooting
+## 7. Use the perimeter from other apps (privacy proxy)
+
+Settings → **Privacy proxy** → Start. Sentynyx now serves an OpenAI-compatible
+endpoint on `http://127.0.0.1:4242/v1` — loopback only, so nothing outside
+your machine can reach it. Point any OpenAI-style client at it:
+
+- **Python**: `OpenAI(base_url="http://127.0.0.1:4242/v1", api_key="unused")`
+- **Cursor / Continue / aider**: set the OpenAI base URL override to `http://127.0.0.1:4242/v1`
+- **curl**: `curl http://127.0.0.1:4242/v1/chat/completions -d '{"model":"gpt-5","messages":[{"role":"user","content":"hi"}]}'`
+
+What happens to each request:
+
+1. Detection runs (regex packs + your custom watchlist; pack toggles respected).
+2. Critical classes (SSNs, cards, keys, credentials) **block** — the client gets
+   an OpenAI-shaped `400` with code `sentynyx_policy_block` and nothing leaves.
+3. Everything else is aliased; the **provider only ever sees `⟦email_01⟧`-style
+   tokens**. Model choice comes from the request's `model` field — your stored
+   keys are used, the client's `api_key` is ignored.
+4. The response streams back **de-aliased**, so your tool sees real values.
+5. Every redaction lands in the same local audit chain (source: `proxy`).
+
+`ollama:llama3.2`-style models work too and stay zero-egress. `GET /v1/models`
+lists what your configured keys unlock. Notes: the proxy runs the regex +
+watchlist layers (not NER/paranoid — those stay in the app composer), and
+aliases are scoped per request, deliberately unlinkable across requests.
+
+---
+
+## 8. Troubleshooting
 
 - **"No API key configured"** → Settings (`⌘,`), add the provider key.
 - **Ollama models don't appear** → make sure `ollama serve` is running, then Settings → Local models → Check connection. Restart Sentynyx to re-scan.
