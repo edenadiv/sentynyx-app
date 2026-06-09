@@ -143,6 +143,9 @@
     {"id":"sk003","text":"maps key AIzaSyA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1v","expected":[{"kind":"APIKEY","raw":"AIzaSyA1bC2dE3fG4hI5jK6lM7nO8pQ9rS0tU1v"}]},
     {"id":"sk004","text":"stripe sk_test_4eC39HqLyjWDarjt","expected":[{"kind":"APIKEY","raw":"sk_test_4eC39HqLyjWDarjt"}],"note":"test prefix + sub-24-char body so the corpus never trips secret scanners"},
     {"id":"sk005","text":"ghp_short is not a token","expected":[]},
+    {"id":"sk006","text":"aws_secret_access_key = bPxRfiCYEXAMPLEKEY12wJalrXUtnFEMIK7MDENG","expected":[{"kind":"APIKEY","raw":"bPxRfiCYEXAMPLEKEY12wJalrXUtnFEMIK7MDENG"}],"note":"anchored 40-char AWS secret (scrambled non-real example value)"},
+    {"id":"sk007","text":"curl -H 'Authorization: Bearer xTokenAbCdEf123456.789'","expected":[{"kind":"APIKEY","raw":"xTokenAbCdEf123456.789"}]},
+    {"id":"sk008","text":"set authorization policy for the bearer of this document","expected":[],"note":"no token after the words — must not anchor on prose"},
 
     {"id":"jwt001","text":"bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c","expected":[{"kind":"JWT","raw":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c"}]},
     {"id":"jwt002","text":"open data.tar.gz attached here","expected":[]},

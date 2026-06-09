@@ -105,7 +105,17 @@ This is the auditable proof: what the provider received never contained your sec
 
 ---
 
-## 6. Troubleshooting
+## 6. Tune detection to your work
+
+Open **Settings** (`⌘,`):
+
+- **Detection packs** — switch off categories you never handle (payment, identity documents, national IDs, medical, legal, network/crypto) to cut noise. Core PII and secrets are the safety floor and can't be disabled. A disabled pack neither aliases nor blocks.
+- **Custom watchlist** — add your own sensitive terms (project codenames, client names, internal hostnames), one per line. They're matched as whole words, case-insensitively, and aliased as `⟦custom_NN⟧`.
+- **Confidence** — every detection carries a confidence score: checksum-validated values (cards, IBANs, NHS numbers…) show 100%; context-anchored matches less. Hover an alias in the Vendetta panel, or open the Dev Inspector (`⌘⇧D`), to see it.
+
+---
+
+## 7. Troubleshooting
 
 - **"No API key configured"** → Settings (`⌘,`), add the provider key.
 - **Ollama models don't appear** → make sure `ollama serve` is running, then Settings → Local models → Check connection. Restart Sentynyx to re-scan.

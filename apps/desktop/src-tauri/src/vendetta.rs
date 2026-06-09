@@ -3,6 +3,11 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+// SCREAMING_SNAKE variant names are intentional: they serialize verbatim
+// (serde uses the variant name) and `as_str()` returns them as the stable
+// wire/audit identifiers — renaming to camel case would break every stored
+// span and audit row.
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Kind {
     EMAIL, PHONE, SSN, IP, APIKEY, URL, ADDRESS, MONEY, NAME, COMPANY, EMPID,
@@ -166,6 +171,11 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     // Database/broker connection strings with embedded credentials — the
     // password travels in the URI, so this is as sensitive as an API key.
     p(Kind::CONNECTION_STRING, r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|amqps?)://[^\s:/@]+:[^\s/@]+@[^\s/]+"),
+    // AWS secret access keys have no distinctive prefix (40 base64 chars), so
+    // they're context-anchored on the variable name they always travel with.
+    pc(Kind::APIKEY, r#"(?i)\baws_?secret_?access_?key\b["']?\s*[:=]\s*["']?([A-Za-z0-9/+=]{40})\b"#),
+    // A pasted Authorization header is a live credential regardless of scheme.
+    pc(Kind::APIKEY, r"(?i)\bauthorization:\s*bearer\s+([A-Za-z0-9._~+/\-]{16,}=*)"),
     // ---- 2. Anchored packs (alias) -----------------------------------------
     pc(Kind::US_BANK, r"(?i)\b(?:aba|routing|rtn)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b"),
     pc(Kind::US_BANK, r"(?i)\b(?:account|acct)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{6,17})\b"),
@@ -498,8 +508,8 @@ mod validators {
         let numeric: Vec<u32> = raw.split(['/', '-', '.']).filter_map(|x| x.trim().parse().ok()).collect();
         if numeric.len() == 3 {
             let (a, b, y) = (numeric[0], numeric[1], numeric[2]);
-            let day_month_ok = (a >= 1 && a <= 12 && b >= 1 && b <= 31)
-                || (b >= 1 && b <= 12 && a >= 1 && a <= 31);
+            let day_month_ok = ((1..=12).contains(&a) && (1..=31).contains(&b))
+                || ((1..=12).contains(&b) && (1..=31).contains(&a));
             let y_ok = if y >= 100 { year_ok(y) } else { true }; // 2-digit years: accept
             return day_month_ok && y_ok;
         }
@@ -898,6 +908,17 @@ mod tests {
             assert!(matches!(spans[0].kind, Kind::APIKEY), "{text}");
         }
         assert!(run("ghp_short").is_empty());
+        // AWS secret access key — anchored on the variable name (no prefix).
+        let spans = run(r#"aws_secret_access_key = "wJalrXUtnFEMIK7MDENGbPxRfiCYEXAMPLEKEY12""#);
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::APIKEY));
+        assert!(is_critical(&spans[0].kind));
+        // 39 chars → not a secret key shape.
+        assert!(run(r#"aws_secret_access_key = "tooShortByOneChar123456789012345678901""#).is_empty());
+        // Pasted Authorization header blocks regardless of token scheme.
+        let spans = run("curl -H 'Authorization: Bearer sk-live-style-token-AbCdEf123456'");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::APIKEY));
     }
 
     #[test]

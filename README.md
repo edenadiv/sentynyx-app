@@ -104,6 +104,7 @@ Four layers run on every send and merge into one alias map:
 † = **blocks egress entirely** — the request is never made.
 
 2. **Custom watchlist** (Settings) — your own codenames, client names, and hostnames, aliased as `⟦custom_NN⟧`.
+   Packs you never handle can be **switched off** (Settings → Detection packs); core PII and secrets are the safety floor and stay on. Every detection carries a **confidence score** (checksum-validated = 100%), visible in the Vendetta panel and Dev Inspector.
 3. **Semantic NER** ([`detect/ner.rs`](apps/desktop/src-tauri/src/detect/ner.rs)) — GLiNER-small (ONNX) for arbitrary names, orgs, codenames, locations that no pattern can enumerate.
 4. **Paranoid LLM** ([`detect/llm.rs`](apps/desktop/src-tauri/src/detect/llm.rs)) — a small local model catching semantic sensitivity ("layoffs", "legal hold") with no token signature.
 
@@ -113,7 +114,7 @@ Everything persists to local SQLite with a SHA-256 hash-chained audit log. Quali
 
 ## What's real vs. roadmap
 
-**Real:** the Vendetta engine + re-hydration, 27 validated detection patterns + custom watchlist, streaming for 4 cloud providers (9 models), Ollama (any local model), bundled on-device model, a guided in-app tour, SQLite persistence, hash-chained audit log with a live privacy-posture dashboard, policy-violation block, consensus arena, telemetry-free operation.
+**Real:** the Vendetta engine + re-hydration, 36 validated detection patterns with per-detection confidence scores, pack toggles + custom watchlist, streaming for 4 cloud providers (9 models), Ollama (any local model), bundled on-device model, a guided in-app tour, SQLite persistence, hash-chained audit log with a live privacy-posture dashboard, policy-violation block, consensus arena, telemetry-free operation.
 
 **Roadmap:** real agent tool-use (the Agent screen is an explicitly-labeled concept preview), knowledge-atlas ingest, custom visual policy rules, voice with redacted transcription, Windows/Linux signed binaries, OpenRouter provider. See [Issues](https://github.com/edenadiv/sentynyx-app/issues).
 
