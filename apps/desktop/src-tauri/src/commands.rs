@@ -40,6 +40,35 @@ async fn read_ollama_base_url(
         .unwrap_or_else(|| "http://localhost:11434".to_string())
 }
 
+/// Packs the user switched off in Settings (`disabled_packs` = JSON array).
+/// Sanitized against TOGGLEABLE_PACKS so the core/secrets safety floor can
+/// never be disabled, even by hand-editing the settings table.
+async fn read_disabled_packs(
+    store: &std::sync::Arc<tokio::sync::Mutex<crate::store::Store>>,
+) -> std::collections::HashSet<String> {
+    let s = store.lock().await;
+    let v: Result<String, _> = s.conn.query_row(
+        "SELECT value FROM settings WHERE key='disabled_packs'",
+        [], |r| r.get(0),
+    );
+    let Ok(raw) = v else { return Default::default() };
+    serde_json::from_str::<Vec<String>>(&raw)
+        .map(|ids| ids.into_iter()
+            .filter(|id| vendetta::TOGGLEABLE_PACKS.contains(&id.as_str()))
+            .collect())
+        .unwrap_or_default()
+}
+
+fn filter_disabled_packs(
+    spans: Vec<Span>,
+    disabled: &std::collections::HashSet<String>,
+) -> Vec<Span> {
+    if disabled.is_empty() { return spans; }
+    spans.into_iter()
+        .filter(|s| !disabled.contains(vendetta::pack_for(&s.kind)))
+        .collect()
+}
+
 /// True only when the Ollama base URL points at the local loopback interface —
 /// inference happens on this machine with no network egress. **Fails closed**:
 /// any host we can't positively identify as loopback is treated as remote, so
@@ -73,15 +102,17 @@ pub struct DetectResult { pub spans: Vec<Span> }
 
 #[tauri::command]
 pub async fn detect(text: String, state: State<'_, AppState>, conv_id: Option<String>) -> Result<DetectResult, String> {
-    // Watchlist lookup locks the store internally — fetch before taking the
-    // lock below or the same task would double-lock the tokio Mutex.
+    // Watchlist + pack lookups lock the store internally — fetch before
+    // taking the lock below or the same task would double-lock the tokio Mutex.
     let custom = crate::detect::custom::custom_spans(&state.store, &text).await;
+    let disabled = read_disabled_packs(&state.store).await;
     let store = state.store.clone();
     let store = store.lock().await;
     let (mut map, mut counters) = if let Some(cid) = conv_id.as_deref() {
         store.load_alias_state(cid).unwrap_or_default()
     } else { (HashMap::new(), HashMap::new()) };
-    let regex_spans = vendetta::detect(&text, &mut map, &mut counters);
+    let regex_spans = filter_disabled_packs(
+        vendetta::detect(&text, &mut map, &mut counters), &disabled);
     let merged = crate::detect::merge_spans(regex_spans, custom);
     let spans = vendetta::apply_alias_map(&merged, &mut map, &mut counters);
     Ok(DetectResult { spans })
@@ -123,6 +154,8 @@ pub async fn detect_with_ner(
     // Merge precedence: built-ins beat custom watchlist terms, custom beats
     // NER (a user-listed term is explicit intent; NER is probabilistic).
     let custom = crate::detect::custom::custom_spans(&state.store, &text).await;
+    let disabled = read_disabled_packs(&state.store).await;
+    let regex_spans = filter_disabled_packs(regex_spans, &disabled);
     let merged = crate::detect::merge_spans(
         crate::detect::merge_spans(regex_spans, custom),
         ner_spans,
@@ -269,6 +302,10 @@ pub async fn send(
     let (ner_result, ner_ms) = ner_pair;
 
     let regex_spans = regex_result.map_err(|e| e.to_string())?;
+    // Respect the user's pack toggles BEFORE the critical-block check below —
+    // a disabled pack must neither alias nor block.
+    let disabled_packs = read_disabled_packs(&store).await;
+    let regex_spans = filter_disabled_packs(regex_spans, &disabled_packs);
     let (ner_spans, ner_status, ner_error): (Vec<crate::vendetta::Span>, &str, Option<String>) =
         match ner_result {
             Ok(Ok(spans)) => (spans, "ok", None),

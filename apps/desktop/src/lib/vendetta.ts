@@ -396,6 +396,48 @@ function cryptoWallet(raw: string): boolean {
 
 const hasDigit = (raw: string) => /\d/.test(raw);
 
+// ---------------------------------------------------------------------------
+// Detection packs (mirror of vendetta::pack_for). `core` and `secrets` are
+// the safety floor and cannot be disabled; the rest are user-toggleable via
+// Settings (`disabled_packs` setting, hydrated through setDisabledPacks).
+// ---------------------------------------------------------------------------
+
+export const TOGGLEABLE_PACKS: { id: string; name: string; hint: string }[] = [
+  { id: "payment", name: "Payment & banking", hint: "cards · IBAN · routing · SWIFT · EIN" },
+  { id: "identity", name: "Identity documents", hint: "DOB · passport · driver's license" },
+  { id: "national-id", name: "National IDs", hint: "ITIN · SIN · NHS · NINO · TFN · Aadhaar" },
+  { id: "medical", name: "Medical", hint: "MRN · NPI · DEA · member IDs" },
+  { id: "legal", name: "Legal", hint: "case & docket numbers" },
+  { id: "network", name: "Network & crypto", hint: "IPs · MAC · wallets" },
+];
+
+export function packFor(kind: Kind): string {
+  switch (kind) {
+    case "CREDITCARD": case "IBAN": case "US_BANK": case "SWIFT_BIC": case "EIN":
+      return "payment";
+    case "DOB": case "PASSPORT": case "DRIVERS_LICENSE":
+      return "identity";
+    case "US_ITIN": case "CA_SIN": case "UK_NHS": case "UK_NINO": case "AU_TFN": case "AADHAAR":
+      return "national-id";
+    case "MRN": case "NPI": case "DEA": case "HEALTH_ID":
+      return "medical";
+    case "CASE_NO":
+      return "legal";
+    case "CRYPTO_WALLET": case "IPV6": case "MAC_ADDRESS": case "IP":
+      return "network";
+    case "APIKEY": case "JWT": case "PRIVATE_KEY": case "CONNECTION_STRING":
+      return "secrets";
+    default:
+      return "core";
+  }
+}
+
+let DISABLED_PACKS = new Set<string>();
+
+export function setDisabledPacks(ids: string[]): void {
+  DISABLED_PACKS = new Set(ids.filter(id => TOGGLEABLE_PACKS.some(p => p.id === id)));
+}
+
 /// Mirror of `vendetta::confidence_for` — keep the tiers in lockstep so the
 /// live preview shows the same confidence the engine records.
 export function confidenceFor(kind: Kind): number {
@@ -472,6 +514,7 @@ export function setCustomTerms(terms: string[]): void {
 export function detect(text: string): Span[] {
   const hits: Span[] = [];
   for (const p of PATTERNS) {
+    if (DISABLED_PACKS.has(packFor(p.kind))) continue;
     p.re.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = p.re.exec(text)) !== null) {

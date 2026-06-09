@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { ipc, isTauri, modelsIpc, onModelProgress, onModelReady, dataIpc, telemetryIpc, teamIpc, settingsIpc, buildInfoIpc, ollamaIpc, type TeamStatus, type SyncOutcome, type BuildInfo, type OllamaHealth } from "../lib/ipc";
-import { setCustomTerms } from "../lib/vendetta";
+import { setCustomTerms, setDisabledPacks, TOGGLEABLE_PACKS } from "../lib/vendetta";
 import type { AllModelStatus } from "../lib/types";
 import { modelStatusKind } from "../lib/types";
 
@@ -181,6 +181,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
         </section>
 
+        <PacksSection />
         <WatchlistSection />
         <DataSection />
         <OllamaSection />
@@ -353,6 +354,79 @@ function DataSection() {
             </div>
           )}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function PacksSection() {
+  const [disabled, setDisabled] = useState<Set<string>>(new Set());
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isTauri) return;
+    settingsIpc.get("disabled_packs").then(v => {
+      if (!v) return;
+      try { setDisabled(new Set(JSON.parse(v) as string[])); } catch {}
+    }).catch(() => {});
+  }, []);
+
+  const toggle = async (id: string) => {
+    const next = new Set(disabled);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setDisabled(next);
+    const list = [...next];
+    setDisabledPacks(list); // live highlights update immediately
+    if (!isTauri) return;
+    try {
+      await settingsIpc.set("disabled_packs", JSON.stringify(list));
+      setStatus("✓ saved");
+    } catch (e) {
+      setStatus(`✗ ${String(e)}`);
+    }
+  };
+
+  return (
+    <section style={{ marginTop: 32 }}>
+      <h3 style={{ fontFamily: "Instrument Serif, serif", fontSize: 20, margin: "0 0 12px" }}>
+        Detection packs
+      </h3>
+      <div style={{
+        padding: 12, background: "#0a0d14",
+        border: "1px solid rgba(255,255,255,0.06)", borderRadius: 4,
+      }}>
+        <div style={{ fontSize: 11, color: "#9ba3b4", lineHeight: 1.5, marginBottom: 10 }}>
+          Switch off categories you never handle to reduce noise. Core PII
+          (emails, phones, SSNs…) and secrets (API keys, private keys,
+          connection strings) are the safety floor and stay on.
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {TOGGLEABLE_PACKS.map(p => (
+            <label key={p.id} style={{
+              display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px",
+              background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)",
+              borderRadius: 4, cursor: "pointer",
+            }}>
+              <input
+                type="checkbox"
+                checked={!disabled.has(p.id)}
+                onChange={() => toggle(p.id)}
+                style={{ marginTop: 2 }}
+              />
+              <span>
+                <span style={{ fontSize: 12, display: "block" }}>{p.name}</span>
+                <span style={{ fontSize: 9, color: "#9ba3b4", fontFamily: "'JetBrains Mono', monospace" }}>{p.hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        {status && (
+          <div style={{
+            fontSize: 11, marginTop: 8,
+            color: status.startsWith("✓") ? "#7cffb2" : "#ff99a8",
+            fontFamily: "'JetBrains Mono', monospace",
+          }}>{status}</div>
+        )}
       </div>
     </section>
   );

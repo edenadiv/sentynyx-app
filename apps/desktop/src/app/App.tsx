@@ -26,7 +26,7 @@ import { OnboardingCard } from "../scenes/OnboardingCard";
 import { AboutDialog } from "../scenes/AboutDialog";
 import { MODELS, SAMPLE_CONVERSATIONS, ollamaModel } from "../lib/models";
 import { ipc, isTauri, onStreamChunk, onAuditNew, modelsIpc, settingsIpc, onTraceStream, onTraceParanoid, onModelReady, ollamaIpc } from "../lib/ipc";
-import { CRITICAL, detect as detectLocal, setCustomTerms } from "../lib/vendetta";
+import { CRITICAL, detect as detectLocal, setCustomTerms, setDisabledPacks } from "../lib/vendetta";
 import type { AllModelStatus, AuditMetrics, BlockReason, Conversation, Message, Model, Span, Tweaks } from "../lib/types";
 import { modelStatusKind } from "../lib/types";
 
@@ -215,13 +215,18 @@ export function App() {
     return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
   }, [traces]);
 
-  // Hydrate the custom watchlist into the client-side highlighter so the
-  // composer's live preview matches the engine from the first keystroke.
+  // Hydrate the custom watchlist + pack toggles into the client-side
+  // highlighter so the composer's live preview matches the engine from the
+  // first keystroke.
   useEffect(() => {
     if (!isTauri) return;
     settingsIpc.get("custom_watchlist").then(v => {
       if (!v) return;
       try { setCustomTerms(JSON.parse(v) as string[]); } catch {}
+    }).catch(() => {});
+    settingsIpc.get("disabled_packs").then(v => {
+      if (!v) return;
+      try { setDisabledPacks(JSON.parse(v) as string[]); } catch {}
     }).catch(() => {});
   }, []);
 

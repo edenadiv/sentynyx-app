@@ -86,6 +86,29 @@ pub struct Span {
 
 fn default_confidence() -> f32 { 1.0 }
 
+/// Detection-pack taxonomy. `core` and `secrets` are the safety floor and are
+/// never disableable; the other packs can be switched off in Settings (the
+/// `disabled_packs` setting holds a JSON array of these ids). NER, paranoid,
+/// and custom-watchlist spans don't belong to a pack and are always active.
+pub fn pack_for(kind: &Kind) -> &'static str {
+    match kind {
+        Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC | Kind::EIN => "payment",
+        Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE => "identity",
+        Kind::US_ITIN | Kind::CA_SIN | Kind::UK_NHS | Kind::UK_NINO | Kind::AU_TFN
+        | Kind::AADHAAR => "national-id",
+        Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID => "medical",
+        Kind::CASE_NO => "legal",
+        Kind::CRYPTO_WALLET | Kind::IPV6 | Kind::MAC_ADDRESS | Kind::IP => "network",
+        Kind::APIKEY | Kind::JWT | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING => "secrets",
+        _ => "core",
+    }
+}
+
+/// Packs a user may switch off. Deliberately excludes `core` and `secrets`:
+/// emails/SSNs/API keys/private keys are the floor of the product promise.
+pub const TOGGLEABLE_PACKS: &[&str] =
+    &["payment", "identity", "national-id", "medical", "legal", "network"];
+
 /// Baseline confidence for a regex-detected kind. A span only reaches this
 /// point if it passed its validator, so the score reflects how *specific* the
 /// match is, not whether it's valid. Checksum/structural-distinct classes are
@@ -1102,6 +1125,26 @@ mod tests {
     #[test]
     fn custom_kind_never_blocks() {
         assert!(!is_critical(&Kind::CUSTOM));
+    }
+
+    #[test]
+    fn pack_taxonomy_covers_safety_floor() {
+        // The safety floor must never be toggleable.
+        assert_eq!(pack_for(&Kind::SSN), "core");
+        assert_eq!(pack_for(&Kind::EMAIL), "core");
+        assert_eq!(pack_for(&Kind::APIKEY), "secrets");
+        assert_eq!(pack_for(&Kind::PRIVATE_KEY), "secrets");
+        assert_eq!(pack_for(&Kind::CONNECTION_STRING), "secrets");
+        assert!(!TOGGLEABLE_PACKS.contains(&"core"));
+        assert!(!TOGGLEABLE_PACKS.contains(&"secrets"));
+        // Every toggleable id is produced by at least one kind.
+        for id in TOGGLEABLE_PACKS {
+            let covered = [
+                Kind::CREDITCARD, Kind::DOB, Kind::UK_NHS, Kind::MRN,
+                Kind::CASE_NO, Kind::MAC_ADDRESS,
+            ].iter().any(|k| pack_for(k) == *id);
+            assert!(covered, "no kind maps to pack {id}");
+        }
     }
 
     #[test]

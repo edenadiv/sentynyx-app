@@ -8,6 +8,15 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **Per-detection confidence scores**: every span carries a [0,1] confidence —
+  checksum-validated kinds 1.0, distinctive structural formats 0.95, anchored
+  heuristics 0.85, unanchored heuristics 0.75; NER spans carry GLiNER's own
+  model score. Shown in the Dev Inspector and color-graded next to every
+  alias in the Vendetta panel.
+- **Detection pack toggles** (Settings → Detection packs): switch off
+  payment, identity, national-ID, medical, legal, or network/crypto
+  detection if you never handle them. Core PII and secrets are the safety
+  floor and cannot be disabled. A disabled pack neither aliases nor blocks.
 - **International national-ID pack + infrastructure classes** (`vendetta.rs`).
   US ITIN, Canadian SIN (Luhn), UK NHS number (mod-11), UK National
   Insurance number (structure rules), Australian TFN (weighted mod-11),
