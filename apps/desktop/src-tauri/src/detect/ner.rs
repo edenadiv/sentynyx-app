@@ -432,6 +432,8 @@ fn decode_gliner_spans(
             kind,
             raw: raw_text,
             alias: String::new(),
+            // Carry GLiNER's own sigmoid score as the detection confidence.
+            confidence: prob as f32,
         });
 
     }

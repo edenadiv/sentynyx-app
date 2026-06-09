@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { CSSProperties } from "react";
 import type { PipelineTrace, StreamTrace, ParanoidTrace } from "../lib/ipc";
 import type { Span } from "../lib/types";
-import { sourceForKind, sourceGlyph } from "../lib/vendetta";
+import { sourceForKind, sourceGlyph, confidenceFor } from "../lib/vendetta";
 
 /// A single send's full picture, stitched from:
 /// - `pipeline`: synchronous PipelineTrace returned on SendMeta.
@@ -295,14 +295,21 @@ function SpanColumn({ title, spans, emptyHint }: { title: string; spans: Span[];
       {spans.length === 0 ? (
         <div style={cx.spanEmpty}>{emptyHint}</div>
       ) : (
-        spans.map((s, i) => (
-          <div key={i} style={cx.spanRow}>
-            <span style={cx.spanGlyph}>{sourceGlyph(sourceForKind(s.kind))}</span>
-            <span style={cx.spanKind}>{s.kind}</span>
-            <span style={cx.spanRaw}>{s.raw}</span>
-            <span style={cx.spanPos}>[{s.start}–{s.end}]</span>
-          </div>
-        ))
+        spans.map((s, i) => {
+          const conf = s.confidence ?? confidenceFor(s.kind);
+          return (
+            <div key={i} style={cx.spanRow}>
+              <span style={cx.spanGlyph}>{sourceGlyph(sourceForKind(s.kind))}</span>
+              <span style={cx.spanKind}>{s.kind}</span>
+              <span style={cx.spanRaw}>{s.raw}</span>
+              <span
+                title="detection confidence"
+                style={{ ...cx.spanPos, color: conf >= 0.95 ? "#7cffb2" : conf >= 0.85 ? "var(--neon)" : "#fbbf24" }}
+              >{Math.round(conf * 100)}%</span>
+              <span style={cx.spanPos}>[{s.start}–{s.end}]</span>
+            </div>
+          );
+        })
       )}
     </div>
   );

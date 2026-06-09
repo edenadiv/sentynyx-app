@@ -51,7 +51,7 @@ mod tests {
     use super::*;
 
     fn sp(start: usize, end: usize, kind: Kind, raw: &str, alias: &str) -> Span {
-        Span { start, end, kind, raw: raw.to_string(), alias: alias.to_string() }
+        Span { start, end, kind, raw: raw.to_string(), alias: alias.to_string(), confidence: 1.0 }
     }
 
     #[test]

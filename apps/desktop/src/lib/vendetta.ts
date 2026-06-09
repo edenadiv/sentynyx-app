@@ -396,6 +396,28 @@ function cryptoWallet(raw: string): boolean {
 
 const hasDigit = (raw: string) => /\d/.test(raw);
 
+/// Mirror of `vendetta::confidence_for` — keep the tiers in lockstep so the
+/// live preview shows the same confidence the engine records.
+export function confidenceFor(kind: Kind): number {
+  switch (kind) {
+    case "CREDITCARD": case "IBAN": case "US_BANK": case "SWIFT_BIC":
+    case "NPI": case "DEA": case "CA_SIN": case "UK_NHS": case "AU_TFN":
+    case "AADHAAR": case "SSN": case "IP": case "IPV6": case "CRYPTO_WALLET":
+    case "PRIVATE_KEY": case "CONNECTION_STRING": case "CUSTOM":
+      return 1.0;
+    case "EMAIL": case "URL": case "APIKEY": case "JWT": case "MAC_ADDRESS":
+    case "EIN": case "US_ITIN":
+      return 0.95;
+    case "DOB": case "PASSPORT": case "DRIVERS_LICENSE": case "MRN":
+    case "HEALTH_ID": case "CASE_NO": case "UK_NINO":
+      return 0.85;
+    case "PHONE": case "MONEY": case "ADDRESS": case "EMPID":
+      return 0.75;
+    default:
+      return 0.8;
+  }
+}
+
 export function validate(kind: Kind, raw: string): boolean {
   switch (kind) {
     case "CREDITCARD": return creditCard(raw);
@@ -463,7 +485,7 @@ export function detect(text: string): Span[] {
         start = end - raw.length;
       }
       if (validate(p.kind, raw)) {
-        hits.push({ start, end, kind: p.kind, raw, alias: "" });
+        hits.push({ start, end, kind: p.kind, raw, alias: "", confidence: confidenceFor(p.kind) });
       }
       if (m.index === p.re.lastIndex) p.re.lastIndex++;
     }
@@ -473,7 +495,7 @@ export function detect(text: string): Span[] {
     CUSTOM_RE.lastIndex = 0;
     let m: RegExpExecArray | null;
     while ((m = CUSTOM_RE.exec(text)) !== null) {
-      hits.push({ start: m.index, end: m.index + m[0].length, kind: "CUSTOM", raw: m[0], alias: "" });
+      hits.push({ start: m.index, end: m.index + m[0].length, kind: "CUSTOM", raw: m[0], alias: "", confidence: 1.0 });
       if (m.index === CUSTOM_RE.lastIndex) CUSTOM_RE.lastIndex++;
     }
   }

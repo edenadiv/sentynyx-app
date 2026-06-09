@@ -454,6 +454,9 @@ pub fn parse_json_spans(text_raw: &str, llm_output: &str) -> Vec<Span> {
             kind,
             raw: text_raw[item.start..item.end].to_string(),
             alias: String::new(),
+            // The paranoid pass is a semantic backstop — no calibrated score,
+            // so a fixed moderate confidence.
+            confidence: 0.7,
         });
     }
     spans

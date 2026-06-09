@@ -98,6 +98,8 @@ fn find(re: &Regex, text: &str) -> Vec<Span> {
             kind: Kind::CUSTOM,
             raw: m.as_str().to_string(),
             alias: String::new(),
+            // User explicitly listed these terms — maximal confidence.
+            confidence: 1.0,
         })
         .collect()
 }

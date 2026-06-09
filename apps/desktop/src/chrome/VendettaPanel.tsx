@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { sx } from "./styles";
 import type { Span } from "../lib/types";
-import { sourceForKind, sourceGlyph, sourceTooltip } from "../lib/vendetta";
+import { confidenceFor, sourceForKind, sourceGlyph, sourceTooltip } from "../lib/vendetta";
 
 interface Props {
   spans: Span[];
@@ -75,18 +75,25 @@ export function VendettaPanel({ spans, open, onClose, aliasMode, setAliasMode }:
               <span>{k}</span>
               <span style={{ opacity:0.4 }}>×{byKind[k].length}</span>
             </div>
-            {byKind[k].map((s, i) => (
-              <div key={i} style={sx.vItem}>
-                <div style={sx.vItemRaw}>{aliasMode === "mask" ? "•".repeat(Math.min(s.raw.length, 10)) : s.raw}</div>
-                <div style={sx.vItemArrow}>→</div>
-                <div style={sx.vItemAlias}>
-                  <span title={sourceTooltip(sourceForKind(s.kind))}>
-                    <span style={{ opacity: 0.6, marginRight: 4 }}>{sourceGlyph(sourceForKind(s.kind))}</span>
-                    {s.alias}
-                  </span>
+            {byKind[k].map((s, i) => {
+              const conf = s.confidence ?? confidenceFor(s.kind);
+              return (
+                <div key={i} style={sx.vItem}>
+                  <div style={sx.vItemRaw}>{aliasMode === "mask" ? "•".repeat(Math.min(s.raw.length, 10)) : s.raw}</div>
+                  <div style={sx.vItemArrow}>→</div>
+                  <div style={sx.vItemAlias}>
+                    <span title={`${sourceTooltip(sourceForKind(s.kind))} · ${Math.round(conf * 100)}% confidence`}>
+                      <span style={{ opacity: 0.6, marginRight: 4 }}>{sourceGlyph(sourceForKind(s.kind))}</span>
+                      {s.alias}
+                      <span style={{
+                        marginLeft: 6, fontSize: 9, opacity: 0.7,
+                        color: conf >= 0.95 ? "#7cffb2" : conf >= 0.85 ? "var(--neon)" : "#fbbf24",
+                      }}>{Math.round(conf * 100)}%</span>
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ))}
       </div>

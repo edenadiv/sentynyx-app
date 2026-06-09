@@ -25,6 +25,9 @@ export interface Span {
   kind: Kind;
   raw: string;
   alias: string;
+  /// Detection confidence in [0,1]. Optional: spans from older payloads or the
+  /// lightweight client preview may omit it (treat missing as 1.0).
+  confidence?: number;
 }
 
 export interface Model {

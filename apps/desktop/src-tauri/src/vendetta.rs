@@ -77,6 +77,40 @@ pub struct Span {
     pub kind: Kind,
     pub raw: String,
     pub alias: String,
+    /// Detection confidence in [0,1]. Deterministic + checksum-validated hits
+    /// are 1.0; anchored heuristics lower; NER carries its model score. Older
+    /// stored spans (pre-confidence) default to 1.0 so they keep deserializing.
+    #[serde(default = "default_confidence")]
+    pub confidence: f32,
+}
+
+fn default_confidence() -> f32 { 1.0 }
+
+/// Baseline confidence for a regex-detected kind. A span only reaches this
+/// point if it passed its validator, so the score reflects how *specific* the
+/// match is, not whether it's valid. Checksum/structural-distinct classes are
+/// certain; anchored-but-loose and pure-heuristic classes are graded down so
+/// the Dev Inspector (and any future threshold) can tell them apart. NER and
+/// LLM spans set their own score at construction and don't use this.
+pub fn confidence_for(kind: &Kind) -> f32 {
+    match kind {
+        // Checksum-validated or cryptographically distinctive → certain.
+        Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC
+        | Kind::NPI | Kind::DEA | Kind::CA_SIN | Kind::UK_NHS | Kind::AU_TFN
+        | Kind::AADHAAR | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
+        | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM => 1.0,
+        // Highly distinctive structural format, no checksum.
+        Kind::EMAIL | Kind::URL | Kind::APIKEY | Kind::JWT | Kind::MAC_ADDRESS
+        | Kind::EIN | Kind::US_ITIN => 0.95,
+        // Context-anchored with a weak value check (presence of a digit, a
+        // plausible date, structural rules).
+        Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::MRN
+        | Kind::HEALTH_ID | Kind::CASE_NO | Kind::UK_NINO => 0.85,
+        // Unanchored heuristics with real false-positive surface.
+        Kind::PHONE | Kind::MONEY | Kind::ADDRESS | Kind::EMPID => 0.75,
+        // NER/LLM kinds set their own at construction; this is only a fallback.
+        _ => 0.8,
+    }
 }
 
 /// `cap == 0` aliases the whole match. `cap == 1` aliases capture group 1 —
@@ -551,7 +585,8 @@ pub fn detect(text: &str, map: &mut AliasMap, counters: &mut HashMap<String, usi
             map.insert(key, a.clone());
             a
         };
-        out.push(Span { start: s, end: e, kind, raw, alias });
+        let confidence = confidence_for(&kind);
+        out.push(Span { start: s, end: e, kind, raw, alias, confidence });
     }
     out
 }
@@ -578,7 +613,7 @@ pub fn apply_alias_map(
         };
         out.push(Span {
             start: s.start, end: s.end, kind: s.kind.clone(),
-            raw: s.raw.clone(), alias,
+            raw: s.raw.clone(), alias, confidence: s.confidence,
         });
     }
     out
@@ -729,8 +764,8 @@ mod tests {
     fn apply_alias_map_mints_consistent_aliases() {
         let mut m = AliasMap::new();
         let mut c = HashMap::new();
-        let s1 = Span { start: 0, end: 5, kind: Kind::EMAIL, raw: "a@b.c".into(), alias: String::new() };
-        let s2 = Span { start: 10, end: 15, kind: Kind::EMAIL, raw: "a@b.c".into(), alias: String::new() };
+        let s1 = Span { start: 0, end: 5, kind: Kind::EMAIL, raw: "a@b.c".into(), alias: String::new(), confidence: 1.0 };
+        let s2 = Span { start: 10, end: 15, kind: Kind::EMAIL, raw: "a@b.c".into(), alias: String::new(), confidence: 1.0 };
         let aliased = apply_alias_map(&[s1, s2], &mut m, &mut c);
         assert_eq!(aliased[0].alias, "\u{27E6}email_01\u{27E7}");
         assert_eq!(aliased[1].alias, "\u{27E6}email_01\u{27E7}");  // same raw -> same alias
@@ -740,7 +775,7 @@ mod tests {
     fn apply_alias_map_respects_ner_kinds() {
         let mut m = AliasMap::new();
         let mut c = HashMap::new();
-        let sp = Span { start: 0, end: 10, kind: Kind::PERSON_NER, raw: "Jamie".into(), alias: String::new() };
+        let sp = Span { start: 0, end: 10, kind: Kind::PERSON_NER, raw: "Jamie".into(), alias: String::new(), confidence: 0.9 };
         let aliased = apply_alias_map(&[sp], &mut m, &mut c);
         assert_eq!(aliased[0].alias, "\u{27E6}person_01\u{27E7}");
     }
@@ -1067,5 +1102,23 @@ mod tests {
     #[test]
     fn custom_kind_never_blocks() {
         assert!(!is_critical(&Kind::CUSTOM));
+    }
+
+    #[test]
+    fn confidence_grades_by_specificity() {
+        // Checksum-validated → certain.
+        let s = run("Card on file: 4111 1111 1111 1111");
+        assert_eq!(s[0].confidence, 1.0);
+        // Context-anchored weak check → mid.
+        let s = run("MRN: 00482931 today");
+        assert!((s[0].confidence - 0.85).abs() < 1e-6, "{}", s[0].confidence);
+        // Unanchored heuristic → lower.
+        let s = run("call 555-123-4567 please");
+        assert!(s[0].confidence < 0.8 && s[0].confidence > 0.0);
+        // Old stored spans without the field deserialize to 1.0.
+        let legacy: Span = serde_json::from_str(
+            r#"{"start":0,"end":5,"kind":"EMAIL","raw":"a@b.c","alias":"x"}"#
+        ).unwrap();
+        assert_eq!(legacy.confidence, 1.0);
     }
 }
