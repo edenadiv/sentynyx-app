@@ -19,7 +19,7 @@ pub enum Kind {
     DOB, PASSPORT, DRIVERS_LICENSE, VIN, MRZ,
     // National / government identifiers (region packs)
     US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR, IT_CF, ES_DNI, BR_CPF, PL_PESEL,
-    SE_PNR, NL_BSN, FR_NIR,
+    SE_PNR, NL_BSN, FR_NIR, DE_STEUER_ID, CN_RESIDENT_ID,
     // Medical
     MRN, NPI, DEA, HEALTH_ID, MEDICARE_MBI,
     // Legal
@@ -48,7 +48,7 @@ impl Kind {
             Kind::UK_NINO => "nino", Kind::AU_TFN => "tfn", Kind::AADHAAR => "aadhaar",
             Kind::IT_CF => "codice-fiscale", Kind::ES_DNI => "dni", Kind::BR_CPF => "cpf",
             Kind::PL_PESEL => "pesel", Kind::SE_PNR => "personnummer", Kind::NL_BSN => "bsn",
-            Kind::FR_NIR => "nir",
+            Kind::FR_NIR => "nir", Kind::DE_STEUER_ID => "steuer-id", Kind::CN_RESIDENT_ID => "resident-id",
             Kind::MRN => "mrn", Kind::NPI => "npi", Kind::DEA => "dea", Kind::HEALTH_ID => "member-id",
             Kind::MEDICARE_MBI => "medicare-mbi",
             Kind::CASE_NO => "case",
@@ -75,7 +75,7 @@ impl Kind {
             Kind::UK_NINO => "UK_NINO", Kind::AU_TFN => "AU_TFN", Kind::AADHAAR => "AADHAAR",
             Kind::IT_CF => "IT_CF", Kind::ES_DNI => "ES_DNI", Kind::BR_CPF => "BR_CPF",
             Kind::PL_PESEL => "PL_PESEL", Kind::SE_PNR => "SE_PNR", Kind::NL_BSN => "NL_BSN",
-            Kind::FR_NIR => "FR_NIR",
+            Kind::FR_NIR => "FR_NIR", Kind::DE_STEUER_ID => "DE_STEUER_ID", Kind::CN_RESIDENT_ID => "CN_RESIDENT_ID",
             Kind::MRN => "MRN", Kind::NPI => "NPI", Kind::DEA => "DEA", Kind::HEALTH_ID => "HEALTH_ID",
             Kind::MEDICARE_MBI => "MEDICARE_MBI",
             Kind::CASE_NO => "CASE_NO",
@@ -114,7 +114,8 @@ pub fn pack_for(kind: &Kind) -> &'static str {
         Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::VIN | Kind::MRZ => "identity",
         Kind::US_ITIN | Kind::CA_SIN | Kind::UK_NHS | Kind::UK_NINO | Kind::AU_TFN
         | Kind::AADHAAR | Kind::IT_CF | Kind::ES_DNI | Kind::BR_CPF | Kind::PL_PESEL
-        | Kind::SE_PNR | Kind::NL_BSN | Kind::FR_NIR => "national-id",
+        | Kind::SE_PNR | Kind::NL_BSN | Kind::FR_NIR | Kind::DE_STEUER_ID
+        | Kind::CN_RESIDENT_ID => "national-id",
         Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID | Kind::MEDICARE_MBI => "medical",
         Kind::CASE_NO => "legal",
         Kind::CRYPTO_WALLET | Kind::IPV6 | Kind::MAC_ADDRESS | Kind::IP => "network",
@@ -141,7 +142,8 @@ pub fn confidence_for(kind: &Kind) -> f32 {
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC
         | Kind::NPI | Kind::DEA | Kind::CA_SIN | Kind::UK_NHS | Kind::AU_TFN
         | Kind::AADHAAR | Kind::IT_CF | Kind::ES_DNI | Kind::BR_CPF | Kind::PL_PESEL
-        | Kind::SE_PNR | Kind::NL_BSN | Kind::FR_NIR | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
+        | Kind::SE_PNR | Kind::NL_BSN | Kind::FR_NIR | Kind::DE_STEUER_ID
+        | Kind::CN_RESIDENT_ID | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
         | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM | Kind::VIN
         | Kind::MRZ => 1.0,
         // Highly distinctive structural format, no checksum.
@@ -258,6 +260,12 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     // French NIR (sécurité sociale): anchored, 13 digits + 2-digit key,
     // spaces optional; key = 97 − (number mod 97) in the validator.
     pc(Kind::FR_NIR, r"(?i)\b(?:nir|s[ée]curit[ée] sociale|num[ée]ro de s[ée]cu)(?:\s*(?:no|number|n[°º]|#))?\.?[:\s]+([12][ .]?\d{2}[ .]?\d{2}[ .]?\d{2}[ .]?\d{3}[ .]?\d{3}[ .]?\d{2})\b"),
+    // German Steuer-ID: anchored 11 digits, ISO 7064 mod 11,10 check.
+    pc(Kind::DE_STEUER_ID, r"(?i)\b(?:steuer[- ]?id(?:entifikationsnummer)?|idnr|tax id)\.?[:\s]+(\d{2}[ ]?\d{3}[ ]?\d{3}[ ]?\d{3}|\d{11})\b"),
+    // Chinese resident ID: 18-char shape with embedded YYYYMMDD is rigid
+    // enough to run unanchored; mod-11-2 check char (incl. X) in the
+    // validator.
+    p(Kind::CN_RESIDENT_ID, r"\b\d{6}(?:19|20)\d{9}[\dX]\b"),
     pc(Kind::MRN, r"(?i)\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{5,12})\b"),
     pc(Kind::NPI, r"(?i)\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b"),
     pc(Kind::DEA, r"(?i)\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b"),
@@ -377,6 +385,8 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::SE_PNR => validators::se_pnr(raw),
         Kind::NL_BSN => validators::nl_bsn(raw),
         Kind::FR_NIR => validators::fr_nir(raw),
+        Kind::DE_STEUER_ID => validators::de_steuer_id(raw),
+        Kind::CN_RESIDENT_ID => validators::cn_resident_id(raw),
         Kind::DOB => validators::date_plausible(raw),
         Kind::SSN => validators::ssn(raw),
         Kind::IP => validators::ipv4_octets(raw),
@@ -729,6 +739,38 @@ mod validators {
         if d.len() != 9 || d.iter().all(|&x| x == 0) { return false; }
         let total: i32 = d[..8].iter().enumerate().map(|(i, &x)| x as i32 * (9 - i as i32)).sum::<i32>() - d[8] as i32;
         total % 11 == 0
+    }
+
+    /// German Steuer-IdNr: ISO 7064 mod 11,10 over the first ten digits.
+    pub fn de_steuer_id(raw: &str) -> bool {
+        let d = digits_of(raw);
+        if d.len() != 11 { return false; }
+        let mut product = 10u32;
+        for &x in &d[..10] {
+            let mut total = (x + product) % 10;
+            if total == 0 { total = 10; }
+            product = (total * 2) % 11;
+        }
+        let check = match 11 - product { 10 => 0, c => c };
+        d[10] == check
+    }
+
+    /// Chinese resident ID: ISO 7064 mod-11-2 over 17 digits, check char
+    /// from "10X98765432", plus embedded-date month/day plausibility.
+    pub fn cn_resident_id(raw: &str) -> bool {
+        if raw.len() != 18 { return false; }
+        const W: [u32; 17] = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2];
+        const M: &[u8] = b"10X98765432";
+        let b = raw.as_bytes();
+        let mut total = 0u32;
+        for i in 0..17 {
+            if !b[i].is_ascii_digit() { return false; }
+            total += (b[i] - b'0') as u32 * W[i];
+        }
+        if M[(total % 11) as usize] != b[17] { return false; }
+        let mm = (b[10] - b'0') * 10 + (b[11] - b'0');
+        let dd = (b[12] - b'0') * 10 + (b[13] - b'0');
+        (1..=12).contains(&mm) && (1..=31).contains(&dd)
     }
 
     /// French NIR: 13-digit number + 2-digit key, key = 97 − (n mod 97).
@@ -1419,6 +1461,16 @@ mod tests {
     }
 
     #[test]
+    fn german_steuer_id_and_chinese_resident_id() {
+        let spans = run("Steuer-ID: 86 095 742 719 hinterlegt");
+        assert!(spans.iter().any(|s| matches!(s.kind, Kind::DE_STEUER_ID)), "{spans:?}");
+        assert!(run("idnr: 86095742710 ungültig").iter().all(|s| !matches!(s.kind, Kind::DE_STEUER_ID)));
+        let spans = run("身份证 11010519491231002X 已登记");
+        assert!(spans.iter().any(|s| matches!(s.kind, Kind::CN_RESIDENT_ID)), "{spans:?}");
+        assert!(run("ref 110105194912310021 bad check").iter().all(|s| !matches!(s.kind, Kind::CN_RESIDENT_ID)));
+    }
+
+    #[test]
     fn french_nir_key() {
         let spans = run("numéro de sécu: 1 85 05 78 006 084 91 enregistré");
         assert!(spans.iter().any(|s| matches!(s.kind, Kind::FR_NIR)), "{spans:?}");
@@ -1674,7 +1726,7 @@ mod tests {
             Kind::CREDITCARD, Kind::IBAN, Kind::US_BANK, Kind::SWIFT_BIC, Kind::EIN,
             Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING, Kind::CREDENTIAL,
             Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE, Kind::VIN, Kind::MRZ,
-            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR, Kind::IT_CF, Kind::ES_DNI, Kind::BR_CPF, Kind::PL_PESEL, Kind::SE_PNR, Kind::NL_BSN, Kind::FR_NIR,
+            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR, Kind::IT_CF, Kind::ES_DNI, Kind::BR_CPF, Kind::PL_PESEL, Kind::SE_PNR, Kind::NL_BSN, Kind::FR_NIR, Kind::DE_STEUER_ID, Kind::CN_RESIDENT_ID,
             Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::MEDICARE_MBI, Kind::CASE_NO,
             Kind::CRYPTO_WALLET, Kind::IPV6, Kind::MAC_ADDRESS, Kind::CUSTOM,
             Kind::PERSON_NER, Kind::ORG_NER, Kind::CODENAME_NER, Kind::LOCATION_NER,

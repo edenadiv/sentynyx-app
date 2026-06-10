@@ -2003,6 +2003,31 @@
    "id": "fr002",
    "text": "nir: 1 85 05 78 006 084 92 clé invalide",
    "expected": []
+  },
+  {
+   "id": "de001",
+   "text": "Mitarbeiter Steuer-ID: 86095742719 erfasst",
+   "expected": [
+    {
+     "kind": "DE_STEUER_ID",
+     "raw": "86095742719"
+    }
+   ]
+  },
+  {
+   "id": "cn001",
+   "text": "登记身份证 11010519491231002X 完成",
+   "expected": [
+    {
+     "kind": "CN_RESIDENT_ID",
+     "raw": "11010519491231002X"
+    }
+   ]
+  },
+  {
+   "id": "cn002",
+   "text": "ref 110105194912310021 fails the mod-11-2 check",
+   "expected": []
   }
  ]
 }

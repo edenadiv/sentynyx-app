@@ -40,6 +40,10 @@ on an **open-core** model (see `OPEN-CORE.md`).
   construction, zero new dependencies (hand-rolled HTTP/1.1 on tokio),
   `ollama:*` models stay zero-egress. The desktop app stops being the only
   place the perimeter exists.
+- **German Steuer-ID + Chinese resident ID**: the last two major-economy
+  gaps — ISO 7064 mod 11,10 for the Steuer-IdNr (anchored) and mod-11-2
+  with X check chars for 身份证 numbers (unanchored, date-gated).
+  55 patterns, 15 national-ID schemes.
 - **French NIR**: anchored sécurité-sociale numbers validated by the
   mod-97 key. 52 patterns, 13 national-ID schemes.
 - **Swedish personnummer + Dutch BSN**: personnummer unanchored

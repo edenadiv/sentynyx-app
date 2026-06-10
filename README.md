@@ -99,7 +99,7 @@ or visit the hosted demo at **https://edenadiv.github.io/sentynyx-app/**. Type a
 
 Five layers run on every send and merge into one alias map:
 
-1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 52 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
+1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 55 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
 
 | Pack | Classes | Validation |
 | --- | --- | --- |
@@ -107,7 +107,7 @@ Five layers run on every send and merge into one alias map:
 | Payment / banking | credit card†, IBAN†, US routing + account, SWIFT/BIC, EIN | Luhn + brand lengths, mod-97, ABA checksum |
 | Secrets | API keys† (OpenAI/Anthropic/Google/AWS access + secret/GitHub/GitLab/Stripe/Slack…), bearer-token headers†, JWTs, private-key blocks†, credentialed DB/Azure connection strings†, generic `password=`/`secret:` assignments† | distinctive prefixes, context anchors, URI credential shape, Shannon entropy + placeholder stoplist |
 | Identity | date of birth, passport (incl. MRZ lines), driver's license, VIN | context anchors + date plausibility, ISO 3779 + ICAO 9303 check digits |
-| National IDs | US ITIN, Canadian SIN, UK NHS + National Insurance, Australian TFN, Aadhaar, Italian Codice Fiscale, Spanish DNI/NIE, Brazilian CPF, Polish PESEL, Swedish personnummer, Dutch BSN, French NIR | Luhn, mod-11/-97 families, Verhoeff, per-scheme check digits |
+| National IDs | US ITIN, Canadian SIN, UK NHS + National Insurance, Australian TFN, Aadhaar, Italian Codice Fiscale, Spanish DNI/NIE, Brazilian CPF, Polish PESEL, Swedish personnummer, Dutch BSN, French NIR, German Steuer-ID, Chinese resident ID | Luhn, mod-11/-97 families, Verhoeff, ISO 7064, per-scheme check digits |
 | Medical | MRN, NPI, DEA, insurance member ID, Medicare MBI | NPI + DEA checksums, CMS character classes |
 | Legal / crypto | case & docket numbers, BTC/ETH wallets | Base58Check |
 
