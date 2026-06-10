@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { detect } from "../lib/vendetta";
 import { ipc, isTauri } from "../lib/ipc";
@@ -71,10 +71,12 @@ export function Composer({ model, onSend, spans, setSpans, text, setText, onTogg
   // the backend and upgrades the span list with names / orgs / codenames /
   // locations / employee IDs that regex can't template. Fires 350 ms after
   // the user stops typing; race-guarded so stale responses are dropped.
+  const [nerPending, setNerPending] = useState(false);
   useEffect(() => {
     if (!isTauri) return;
     const queriedText = text;
-    if (!queriedText.trim()) { lastNerSpans.current = []; return; }
+    if (!queriedText.trim()) { lastNerSpans.current = []; setNerPending(false); return; }
+    setNerPending(true);
     const timer = setTimeout(async () => {
       try {
         const r = await ipc.detectWithNer(queriedText);
@@ -84,6 +86,8 @@ export function Composer({ model, onSend, spans, setSpans, text, setText, onTogg
       } catch {
         // Keep current highlights. Backend may be unavailable during
         // first-run model download or early startup.
+      } finally {
+        if (latestText.current === queriedText) setNerPending(false);
       }
     }, 350);
     return () => clearTimeout(timer);
@@ -115,7 +119,7 @@ export function Composer({ model, onSend, spans, setSpans, text, setText, onTogg
             </span>
             <span style={{ fontSize:10, color: spans.length > 0 ? "var(--neon)" : "var(--ink-3)", fontFamily:"'JetBrains Mono',monospace" }}>
               {spans.length > 0
-                ? `${spans.length} sensitive ${spans.length === 1 ? "token" : "tokens"} detected · will be anonymized before ${model.provider}`
+                ? `${spans.length} sensitive ${spans.length === 1 ? "token" : "tokens"} detected${nerPending ? " · semantic pass…" : ""} · will be anonymized before ${model.provider}`
                 : "Listening · no PII in buffer"}
             </span>
           </div>

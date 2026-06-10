@@ -16,7 +16,7 @@ pub enum Kind {
     // Secrets
     JWT, PRIVATE_KEY, CONNECTION_STRING, CREDENTIAL,
     // Identity documents
-    DOB, PASSPORT, DRIVERS_LICENSE, VIN,
+    DOB, PASSPORT, DRIVERS_LICENSE, VIN, MRZ,
     // National / government identifiers (region packs)
     US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR,
     // Medical
@@ -42,7 +42,7 @@ impl Kind {
             Kind::JWT => "jwt", Kind::PRIVATE_KEY => "private-key", Kind::CONNECTION_STRING => "conn-string",
             Kind::CREDENTIAL => "credential",
             Kind::DOB => "dob", Kind::PASSPORT => "passport", Kind::DRIVERS_LICENSE => "license",
-            Kind::VIN => "vin",
+            Kind::VIN => "vin", Kind::MRZ => "passport-mrz",
             Kind::US_ITIN => "itin", Kind::CA_SIN => "sin", Kind::UK_NHS => "nhs",
             Kind::UK_NINO => "nino", Kind::AU_TFN => "tfn", Kind::AADHAAR => "aadhaar",
             Kind::MRN => "mrn", Kind::NPI => "npi", Kind::DEA => "dea", Kind::HEALTH_ID => "member-id",
@@ -66,7 +66,7 @@ impl Kind {
             Kind::JWT => "JWT", Kind::PRIVATE_KEY => "PRIVATE_KEY", Kind::CONNECTION_STRING => "CONNECTION_STRING",
             Kind::CREDENTIAL => "CREDENTIAL",
             Kind::DOB => "DOB", Kind::PASSPORT => "PASSPORT", Kind::DRIVERS_LICENSE => "DRIVERS_LICENSE",
-            Kind::VIN => "VIN",
+            Kind::VIN => "VIN", Kind::MRZ => "MRZ",
             Kind::US_ITIN => "US_ITIN", Kind::CA_SIN => "CA_SIN", Kind::UK_NHS => "UK_NHS",
             Kind::UK_NINO => "UK_NINO", Kind::AU_TFN => "AU_TFN", Kind::AADHAAR => "AADHAAR",
             Kind::MRN => "MRN", Kind::NPI => "NPI", Kind::DEA => "DEA", Kind::HEALTH_ID => "HEALTH_ID",
@@ -104,7 +104,7 @@ fn default_confidence() -> f32 { 1.0 }
 pub fn pack_for(kind: &Kind) -> &'static str {
     match kind {
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC | Kind::EIN => "payment",
-        Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::VIN => "identity",
+        Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::VIN | Kind::MRZ => "identity",
         Kind::US_ITIN | Kind::CA_SIN | Kind::UK_NHS | Kind::UK_NINO | Kind::AU_TFN
         | Kind::AADHAAR => "national-id",
         Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID | Kind::MEDICARE_MBI => "medical",
@@ -133,7 +133,8 @@ pub fn confidence_for(kind: &Kind) -> f32 {
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC
         | Kind::NPI | Kind::DEA | Kind::CA_SIN | Kind::UK_NHS | Kind::AU_TFN
         | Kind::AADHAAR | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
-        | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM | Kind::VIN => 1.0,
+        | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM | Kind::VIN
+        | Kind::MRZ => 1.0,
         // Highly distinctive structural format, no checksum.
         Kind::EMAIL | Kind::URL | Kind::APIKEY | Kind::JWT | Kind::MAC_ADDRESS
         | Kind::EIN | Kind::US_ITIN | Kind::MEDICARE_MBI => 0.95,
@@ -198,6 +199,12 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     pc(Kind::DOB, r"(?i)\b(?:dob|date of birth|birth\s?date|born(?:\s+on)?)\.?[:\s]+(\d{1,2}[/\-\.]\d{1,2}[/\-\.](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?\s+\d{4})\b"),
     pc(Kind::PASSPORT, r"(?i)\bpassport(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9]{6,9})\b"),
     pc(Kind::DRIVERS_LICENSE, r"(?i)\b(?:driver'?s?\s+licen[cs]e|dl)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{4,13})\b"),
+    // Passport MRZ (ICAO 9303 TD3, line 2): document number, nationality,
+    // DOB, sex, expiry in one 44-char machine-readable line. Four check
+    // digits validated — doc number, DOB, expiry, and the composite — so a
+    // random fixed-width token can't fake it. Boundary groups instead of \b:
+    // '<' is a non-word char, so \b would match inside the filler runs.
+    pc(Kind::MRZ, r"(?:^|[^A-Z0-9<])([A-Z0-9<]{9}\d[A-Z<]{3}\d{6}\d[MFX<]\d{6}\d[A-Z0-9<]{14}\d{2})(?:[^A-Z0-9<]|$)"),
     // VIN: unanchored 17-char (charset excludes I/O/Q) gated by the ISO 3779
     // check digit — ~1/11 selectivity on top of the strict charset. Known
     // miss: EU-market VINs without a valid North-American check digit.
@@ -329,6 +336,7 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::IPV6 => raw.parse::<std::net::Ipv6Addr>().is_ok(),
         Kind::CREDENTIAL => validators::credential_value(raw),
         Kind::VIN => validators::vin(raw),
+        Kind::MRZ => validators::mrz_td3(raw),
         Kind::MEDICARE_MBI => validators::medicare_mbi(raw),
         Kind::CRYPTO_WALLET => validators::crypto_wallet(raw),
         Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::MRN | Kind::HEALTH_ID | Kind::CASE_NO => {
@@ -630,6 +638,38 @@ mod validators {
             r => char::from_digit(r, 10).unwrap(),
         };
         raw.chars().nth(8) == Some(check)
+    }
+
+    /// ICAO 9303 TD3 (passport) MRZ line 2: check digits with weights 7,3,1
+    /// over A–Z=10–35, digits, '<'=0 — for the document number, birth date,
+    /// expiry date, and the composite over all three fields plus the
+    /// personal-number block. Four independent digits ≈ 1/10⁴ FP floor on
+    /// top of the rigid 44-char shape.
+    pub fn mrz_td3(raw: &str) -> bool {
+        if raw.len() != 44 { return false; }
+        let b: Vec<char> = raw.chars().collect();
+        let val = |c: char| -> Option<u32> {
+            match c {
+                '0'..='9' => Some(c as u32 - '0' as u32),
+                'A'..='Z' => Some(c as u32 - 'A' as u32 + 10),
+                '<' => Some(0),
+                _ => None,
+            }
+        };
+        let check = |s: &[char], expect: char| -> bool {
+            const W: [u32; 3] = [7, 3, 1];
+            let mut sum = 0u32;
+            for (i, &c) in s.iter().enumerate() {
+                let Some(v) = val(c) else { return false };
+                sum += v * W[i % 3];
+            }
+            char::from_digit(sum % 10, 10) == Some(expect)
+        };
+        let composite: Vec<char> = b[0..10].iter().chain(&b[13..20]).chain(&b[21..43]).copied().collect();
+        check(&b[0..9], b[9])
+            && check(&b[13..19], b[19])
+            && check(&b[21..27], b[27])
+            && check(&composite, b[43])
     }
 
     /// Medicare Beneficiary Identifier (CMS spec): 11 chars, per-position
@@ -1202,6 +1242,23 @@ mod tests {
     }
 
     #[test]
+    fn passport_mrz_check_digits_validated() {
+        // Canonical ICAO 9303 specimen (Utopia passport, all four digits valid).
+        let line2 = "L898902C36UTO7408122F1204159ZE184226B<<<<<10";
+        let spans = run(&format!("ocr dump:\n{line2}\nend"));
+        assert_eq!(spans.len(), 1, "{spans:?}");
+        assert!(matches!(spans[0].kind, Kind::MRZ));
+        assert_eq!(spans[0].raw, line2);
+        assert_eq!(spans[0].confidence, 1.0);
+        // One mutated digit breaks the document-number check digit.
+        let bad = "L898903C36UTO7408122F1204159ZE184226B<<<<<10";
+        assert!(run(bad).iter().all(|s| !matches!(s.kind, Kind::MRZ)));
+        // Same-shape random filler fails all four digits.
+        assert!(run("ABCDEFGHI0XYZ0101011M2020202QQQQQQQQQQQQQQ00")
+            .iter().all(|s| !matches!(s.kind, Kind::MRZ)));
+    }
+
+    #[test]
     fn vin_check_digit_validated() {
         // Canonical valid VIN (check digit '3' at position 9), unanchored.
         let spans = run("totaled my civic, VIN 1HGCM82633A004352, need the claim letter");
@@ -1340,7 +1397,7 @@ mod tests {
             Kind::ADDRESS, Kind::MONEY, Kind::NAME, Kind::COMPANY, Kind::EMPID,
             Kind::CREDITCARD, Kind::IBAN, Kind::US_BANK, Kind::SWIFT_BIC, Kind::EIN,
             Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING, Kind::CREDENTIAL,
-            Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE, Kind::VIN,
+            Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE, Kind::VIN, Kind::MRZ,
             Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR,
             Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::MEDICARE_MBI, Kind::CASE_NO,
             Kind::CRYPTO_WALLET, Kind::IPV6, Kind::MAC_ADDRESS, Kind::CUSTOM,

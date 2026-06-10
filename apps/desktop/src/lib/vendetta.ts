@@ -35,6 +35,8 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "DOB", re: /\b(?:dob|date of birth|birth ?date|born(?: on)?)\.?[:\s]+(\d{1,2}[/\-.]\d{1,2}[/\-.](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.? +\d{1,2},? +\d{4})\b/gi, cap: true },
   { kind: "PASSPORT", re: /\bpassport(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9]{6,9})\b/gi, cap: true },
   { kind: "DRIVERS_LICENSE", re: /\b(?:driver'?s? licen[cs]e|dl)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9-]{4,13})\b/gi, cap: true },
+  // Passport MRZ (ICAO 9303 TD3 line 2) — four check digits in the validator.
+  { kind: "MRZ", re: /(?:^|[^A-Z0-9<])([A-Z0-9<]{9}\d[A-Z<]{3}\d{6}\d[MFX<]\d{6}\d[A-Z0-9<]{14}\d{2})(?=[^A-Z0-9<]|$)/g, cap: true },
   // VIN: unanchored, ISO 3779 check digit does the real filtering.
   { kind: "VIN", re: /\b[A-HJ-NPR-Z0-9]{17}\b/g },
   { kind: "US_ITIN", re: /\bitin(?:\s*(?:no|number|#))?\.?[:\s]+(9\d{2}-(?:7\d|8[0-8]|9[0-24-9])-\d{4})\b/gi, cap: true },
@@ -77,6 +79,7 @@ export const LABELS: Record<Kind, string> = {
   JWT: "jwt", PRIVATE_KEY: "private-key", CONNECTION_STRING: "conn-string",
   CREDENTIAL: "credential",
   DOB: "dob", PASSPORT: "passport", DRIVERS_LICENSE: "license", VIN: "vin",
+  MRZ: "passport-mrz",
   US_ITIN: "itin", CA_SIN: "sin", UK_NHS: "nhs", UK_NINO: "nino",
   AU_TFN: "tfn", AADHAAR: "aadhaar",
   MRN: "mrn", NPI: "npi", DEA: "dea", HEALTH_ID: "member-id",
@@ -432,6 +435,28 @@ function vin(raw: string): boolean {
   return raw[8] === (r === 10 ? "X" : String(r));
 }
 
+/** ICAO 9303 TD3 MRZ line-2 check digits — mirror of validators::mrz_td3. */
+function mrzTd3(raw: string): boolean {
+  if (raw.length !== 44) return false;
+  const val = (c: string): number | null =>
+    c >= "0" && c <= "9" ? Number(c) : c === "<" ? 0 : c >= "A" && c <= "Z" ? c.charCodeAt(0) - 55 : null;
+  const check = (s: string, expect: string): boolean => {
+    const w = [7, 3, 1];
+    let sum = 0;
+    for (let i = 0; i < s.length; i++) {
+      const v = val(s[i]);
+      if (v === null) return false;
+      sum += v * w[i % 3];
+    }
+    return String(sum % 10) === expect;
+  };
+  const composite = raw.slice(0, 10) + raw.slice(13, 20) + raw.slice(21, 43);
+  return check(raw.slice(0, 9), raw[9])
+    && check(raw.slice(13, 19), raw[19])
+    && check(raw.slice(21, 27), raw[27])
+    && check(composite, raw[43]);
+}
+
 /** Medicare MBI per-position CMS classes — mirror of validators::medicare_mbi. */
 function medicareMbi(raw: string): boolean {
   const s = raw.replace(/-/g, "").toUpperCase();
@@ -484,7 +509,7 @@ function credentialValue(raw: string): boolean {
 
 export const TOGGLEABLE_PACKS: { id: string; name: string; hint: string }[] = [
   { id: "payment", name: "Payment & banking", hint: "cards · IBAN · routing · SWIFT · EIN" },
-  { id: "identity", name: "Identity documents", hint: "DOB · passport · driver's license · VIN" },
+  { id: "identity", name: "Identity documents", hint: "DOB · passport + MRZ · driver's license · VIN" },
   { id: "national-id", name: "National IDs", hint: "ITIN · SIN · NHS · NINO · TFN · Aadhaar" },
   { id: "medical", name: "Medical", hint: "MRN · NPI · DEA · member IDs · Medicare MBI" },
   { id: "legal", name: "Legal", hint: "case & docket numbers" },
@@ -495,7 +520,7 @@ export function packFor(kind: Kind): string {
   switch (kind) {
     case "CREDITCARD": case "IBAN": case "US_BANK": case "SWIFT_BIC": case "EIN":
       return "payment";
-    case "DOB": case "PASSPORT": case "DRIVERS_LICENSE": case "VIN":
+    case "DOB": case "PASSPORT": case "DRIVERS_LICENSE": case "VIN": case "MRZ":
       return "identity";
     case "US_ITIN": case "CA_SIN": case "UK_NHS": case "UK_NINO": case "AU_TFN": case "AADHAAR":
       return "national-id";
@@ -527,6 +552,7 @@ export function confidenceFor(kind: Kind): number {
     case "NPI": case "DEA": case "CA_SIN": case "UK_NHS": case "AU_TFN":
     case "AADHAAR": case "SSN": case "IP": case "IPV6": case "CRYPTO_WALLET":
     case "PRIVATE_KEY": case "CONNECTION_STRING": case "CUSTOM": case "VIN":
+    case "MRZ":
       return 1.0;
     case "EMAIL": case "URL": case "APIKEY": case "JWT": case "MAC_ADDRESS":
     case "EIN": case "US_ITIN": case "MEDICARE_MBI":
@@ -560,6 +586,7 @@ export function validate(kind: Kind, raw: string): boolean {
     case "CRYPTO_WALLET": return cryptoWallet(raw);
     case "CREDENTIAL": return credentialValue(raw);
     case "VIN": return vin(raw);
+    case "MRZ": return mrzTd3(raw);
     case "MEDICARE_MBI": return medicareMbi(raw);
     case "PASSPORT":
     case "DRIVERS_LICENSE":

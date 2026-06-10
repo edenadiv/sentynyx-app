@@ -1845,6 +1845,21 @@
    "id": "st003",
    "text": "the report compares revenue, churn, and NRR for Q4 across regions",
    "expected": []
+  },
+  {
+   "id": "mrz001",
+   "text": "passport scan OCR:\nL898902C36UTO7408122F1204159ZE184226B<<<<<10\nplease verify",
+   "expected": [
+    {
+     "kind": "MRZ",
+     "raw": "L898902C36UTO7408122F1204159ZE184226B<<<<<10"
+    }
+   ]
+  },
+  {
+   "id": "mrz002",
+   "text": "corrupt scan L898903C36UTO7408122F1204159ZE184226B<<<<<10 retry needed",
+   "expected": []
   }
  ]
 }

@@ -99,14 +99,14 @@ or visit the hosted demo at **https://edenadiv.github.io/sentynyx-app/**. Type a
 
 Five layers run on every send and merge into one alias map:
 
-1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 41 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
+1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 42 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
 
 | Pack | Classes | Validation |
 | --- | --- | --- |
 | Core PII | email, phone, SSN†, IPv4/IPv6, MAC, URL, address, money, employee ID | octet ranges, IPv6 parse |
 | Payment / banking | credit card†, IBAN†, US routing + account, SWIFT/BIC, EIN | Luhn + brand lengths, mod-97, ABA checksum |
 | Secrets | API keys† (OpenAI/Anthropic/Google/AWS access + secret/GitHub/GitLab/Stripe/Slack…), bearer-token headers†, JWTs, private-key blocks†, credentialed DB connection strings†, generic `password=`/`secret:` assignments† | distinctive prefixes, context anchors, URI credential shape, Shannon entropy + placeholder stoplist |
-| Identity | date of birth, passport, driver's license, VIN | context anchors + date plausibility, ISO 3779 check digit |
+| Identity | date of birth, passport (incl. MRZ lines), driver's license, VIN | context anchors + date plausibility, ISO 3779 + ICAO 9303 check digits |
 | National IDs | US ITIN, Canadian SIN, UK NHS + National Insurance, Australian TFN, Aadhaar | Luhn, NHS mod-11, TFN weighted mod-11, Verhoeff |
 | Medical | MRN, NPI, DEA, insurance member ID, Medicare MBI | NPI + DEA checksums, CMS character classes |
 | Legal / crypto | case & docket numbers, BTC/ETH wallets | Base58Check |

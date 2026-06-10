@@ -6,7 +6,7 @@ export type Kind =
   // Secrets
   | "JWT" | "PRIVATE_KEY" | "CONNECTION_STRING" | "CREDENTIAL"
   // Identity documents
-  | "DOB" | "PASSPORT" | "DRIVERS_LICENSE" | "VIN"
+  | "DOB" | "PASSPORT" | "DRIVERS_LICENSE" | "VIN" | "MRZ"
   // National / government identifiers
   | "US_ITIN" | "CA_SIN" | "UK_NHS" | "UK_NINO" | "AU_TFN" | "AADHAAR"
   // Medical
