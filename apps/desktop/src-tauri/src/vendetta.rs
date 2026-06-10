@@ -198,6 +198,8 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     // ---- 2. Anchored packs (alias) -----------------------------------------
     pc(Kind::US_BANK, r"(?i)\b(?:aba|routing|rtn)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b"),
     pc(Kind::US_BANK, r"(?i)\b(?:account|acct)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{6,17})\b"),
+    // UK sort codes ride the same kind/label ("bank") + 6-digit account rule.
+    pc(Kind::US_BANK, r"(?i)\b(?:sort\s*code)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{2}[- ]?\d{2}[- ]?\d{2})\b"),
     pc(Kind::SWIFT_BIC, r"\b(?i:swift|bic)(?i:\s*(?:code|no|number|#))?\.?[:\s]+([A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b"),
     pc(Kind::EIN, r"(?i)\b(?:ein|employer identification number|tax id)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{2}-\d{7})\b"),
     pc(Kind::DOB, r"(?i)\b(?:dob|date of birth|birth\s?date|born(?:\s+on)?)\.?[:\s]+(\d{1,2}[/\-\.]\d{1,2}[/\-\.](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2},?\s+\d{4})\b"),
@@ -1287,6 +1289,14 @@ mod tests {
         assert!(spans.iter().any(|s| matches!(s.kind, Kind::CONNECTION_STRING)), "{spans:?}");
         // Prose about account keys never matches (anchor requires '=value').
         assert!(run("rotate the AccountKey quarterly per policy").is_empty());
+    }
+
+    #[test]
+    fn uk_sort_codes_alias_as_bank() {
+        let spans = run("transfer via sort code: 20-00-00 today");
+        assert_eq!(spans.len(), 1, "{spans:?}");
+        assert!(matches!(spans[0].kind, Kind::US_BANK));
+        assert_eq!(spans[0].raw, "20-00-00");
     }
 
     #[test]

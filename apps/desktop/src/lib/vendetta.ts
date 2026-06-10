@@ -31,6 +31,7 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   // ---- 2. Anchored packs ----
   { kind: "US_BANK", re: /\b(?:aba|routing|rtn)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b/gi, cap: true },
   { kind: "US_BANK", re: /\b(?:account|acct)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{6,17})\b/gi, cap: true },
+  { kind: "US_BANK", re: /\b(?:sort\s*code)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{2}[- ]?\d{2}[- ]?\d{2})\b/gi, cap: true },
   { kind: "SWIFT_BIC", re: /\b(?:swift|bic)(?:\s*(?:code|no|number|#))?\.?[:\s]+([A-Z]{6}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b/gi, cap: true },
   { kind: "EIN", re: /\b(?:ein|employer identification number|tax id)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{2}-\d{7})\b/gi, cap: true },
   { kind: "DOB", re: /\b(?:dob|date of birth|birth ?date|born(?: on)?)\.?[:\s]+(\d{1,2}[/\-.]\d{1,2}[/\-.](?:\d{4}|\d{2})|\d{4}-\d{2}-\d{2}|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.? +\d{1,2},? +\d{4})\b/gi, cap: true },

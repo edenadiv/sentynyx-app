@@ -40,6 +40,8 @@ on an **open-core** model (see `OPEN-CORE.md`).
   construction, zero new dependencies (hand-rolled HTTP/1.1 on tokio),
   `ollama:*` models stay zero-egress. The desktop app stops being the only
   place the perimeter exists.
+- **UK sort codes**: `sort code: 20-00-00` aliases via the banking anchor.
+  44 patterns.
 - **Azure connection strings**: `AccountKey=`/`SharedAccessKey=` values
   (storage + service-bus credentials) block egress like database URIs.
   43 patterns.

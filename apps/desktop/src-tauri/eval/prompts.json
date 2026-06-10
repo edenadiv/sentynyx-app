@@ -1885,6 +1885,20 @@
      "raw": "SG.abcdefghij1234567.klmnopqrst7654321"
     }
    ]
+  },
+  {
+   "id": "uk001",
+   "text": "pay rent to sort code: 20-00-00, account no: 55779911",
+   "expected": [
+    {
+     "kind": "US_BANK",
+     "raw": "20-00-00"
+    },
+    {
+     "kind": "US_BANK",
+     "raw": "55779911"
+    }
+   ]
   }
  ]
 }
