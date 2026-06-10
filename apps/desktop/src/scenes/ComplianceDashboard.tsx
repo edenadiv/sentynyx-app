@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useEscape } from "../lib/useEscape";
 import type { CSSProperties } from "react";
-import { ipc, isTauri, modelsIpc } from "../lib/ipc";
+import { ipc, isTauri, modelsIpc, onModelProgress, onModelReady } from "../lib/ipc";
 import type { AuditEntry, AuditMetrics, AllModelStatus } from "../lib/types";
 import { modelStatusKind } from "../lib/types";
 
@@ -17,6 +17,7 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
     redactions_24h: 0, redactions_7d: 0, blocks_7d: 0,
   });
   const [models, setModels] = useState<AllModelStatus | null>(null);
+  const [downloadPct, setDownloadPct] = useState<number | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -27,6 +28,18 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
         setModels(await modelsIpc.status());
       } catch {}
     })();
+  }, []);
+
+  // Live download progress so the tile reads "downloading 45%" instead of a
+  // stale OFF while the user waits on first-run model fetches.
+  useEffect(() => {
+    if (!isTauri) return;
+    const unP = onModelProgress(e => setDownloadPct(e.percent));
+    const unR = onModelReady(() => {
+      setDownloadPct(null);
+      modelsIpc.status().then(setModels).catch(() => {});
+    });
+    return () => { unP.then(u => u()); unR.then(u => u()); };
   }, []);
 
   const nerReady = models !== null
@@ -40,7 +53,10 @@ export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
     { n: "BLOCKS · 7D", v: metrics.blocks_7d.toLocaleString(), s: "egress prevented", c: metrics.blocks_7d > 0 ? "#ff99a8" : "var(--good)" },
     { n: "TOKEN CLASSES", v: String(metrics.classes), s: "distinct kinds observed", c: "var(--good)" },
     { n: "REGEX ENGINE", v: "ACTIVE", s: "55 patterns · 7 packs", c: "var(--good)" },
-    { n: "SEMANTIC LAYERS", v: nerReady ? (paranoidReady ? "NER + LLM" : "NER") : "OFF", s: nerReady ? "on-device models loaded" : "download via Settings", c: nerReady ? "var(--good)" : "var(--ink-3)" },
+    { n: "SEMANTIC LAYERS",
+      v: downloadPct !== null ? `${downloadPct}%` : nerReady ? (paranoidReady ? "NER + LLM" : "NER") : "OFF",
+      s: downloadPct !== null ? "downloading models…" : nerReady ? "on-device models loaded" : "download via Settings",
+      c: downloadPct !== null ? "var(--neon)" : nerReady ? "var(--good)" : "var(--ink-3)" },
   ];
 
   return (
