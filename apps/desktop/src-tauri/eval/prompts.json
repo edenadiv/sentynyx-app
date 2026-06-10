@@ -1899,6 +1899,21 @@
      "raw": "55779911"
     }
    ]
+  },
+  {
+   "id": "cf001",
+   "text": "registra il dipendente RSSMRA85T10A562S nel sistema",
+   "expected": [
+    {
+     "kind": "IT_CF",
+     "raw": "RSSMRA85T10A562S"
+    }
+   ]
+  },
+  {
+   "id": "cf002",
+   "text": "codice errato RSSMRA85T10A562T da scartare",
+   "expected": []
   }
  ]
 }

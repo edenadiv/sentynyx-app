@@ -18,7 +18,7 @@ pub enum Kind {
     // Identity documents
     DOB, PASSPORT, DRIVERS_LICENSE, VIN, MRZ,
     // National / government identifiers (region packs)
-    US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR,
+    US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR, IT_CF,
     // Medical
     MRN, NPI, DEA, HEALTH_ID, MEDICARE_MBI,
     // Legal
@@ -45,6 +45,7 @@ impl Kind {
             Kind::VIN => "vin", Kind::MRZ => "passport-mrz",
             Kind::US_ITIN => "itin", Kind::CA_SIN => "sin", Kind::UK_NHS => "nhs",
             Kind::UK_NINO => "nino", Kind::AU_TFN => "tfn", Kind::AADHAAR => "aadhaar",
+            Kind::IT_CF => "codice-fiscale",
             Kind::MRN => "mrn", Kind::NPI => "npi", Kind::DEA => "dea", Kind::HEALTH_ID => "member-id",
             Kind::MEDICARE_MBI => "medicare-mbi",
             Kind::CASE_NO => "case",
@@ -69,6 +70,7 @@ impl Kind {
             Kind::VIN => "VIN", Kind::MRZ => "MRZ",
             Kind::US_ITIN => "US_ITIN", Kind::CA_SIN => "CA_SIN", Kind::UK_NHS => "UK_NHS",
             Kind::UK_NINO => "UK_NINO", Kind::AU_TFN => "AU_TFN", Kind::AADHAAR => "AADHAAR",
+            Kind::IT_CF => "IT_CF",
             Kind::MRN => "MRN", Kind::NPI => "NPI", Kind::DEA => "DEA", Kind::HEALTH_ID => "HEALTH_ID",
             Kind::MEDICARE_MBI => "MEDICARE_MBI",
             Kind::CASE_NO => "CASE_NO",
@@ -106,7 +108,7 @@ pub fn pack_for(kind: &Kind) -> &'static str {
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC | Kind::EIN => "payment",
         Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::VIN | Kind::MRZ => "identity",
         Kind::US_ITIN | Kind::CA_SIN | Kind::UK_NHS | Kind::UK_NINO | Kind::AU_TFN
-        | Kind::AADHAAR => "national-id",
+        | Kind::AADHAAR | Kind::IT_CF => "national-id",
         Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID | Kind::MEDICARE_MBI => "medical",
         Kind::CASE_NO => "legal",
         Kind::CRYPTO_WALLET | Kind::IPV6 | Kind::MAC_ADDRESS | Kind::IP => "network",
@@ -132,7 +134,7 @@ pub fn confidence_for(kind: &Kind) -> f32 {
         // Checksum-validated or cryptographically distinctive → certain.
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC
         | Kind::NPI | Kind::DEA | Kind::CA_SIN | Kind::UK_NHS | Kind::AU_TFN
-        | Kind::AADHAAR | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
+        | Kind::AADHAAR | Kind::IT_CF | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
         | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM | Kind::VIN
         | Kind::MRZ => 1.0,
         // Highly distinctive structural format, no checksum.
@@ -225,6 +227,10 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     pc(Kind::UK_NINO, r"(?i)\b(?:national insurance|nino)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Za-z]{2}\d{6}[A-Da-d])\b"),
     pc(Kind::AU_TFN, r"(?i)\b(?:tfn|tax file number)(?:\s*(?:no|number|#))?\.?[:\s]+(\d{3}[ \-]?\d{3}[ \-]?\d{3})\b"),
     pc(Kind::AADHAAR, r"(?i)\baadh?aar(?:\s*(?:no|number|#))?\.?[:\s]+(\d{4}[ \-]?\d{4}[ \-]?\d{4})\b"),
+    // Italian Codice Fiscale: rigid 16-char shape + check character. The
+    // shape alone (6 letters, yy, month letter, dd, area, check) is selective
+    // enough to run unanchored; the check character does the rest.
+    p(Kind::IT_CF, r"\b[A-Z]{6}\d{2}[ABCDEHLMPRST]\d{2}[A-Z]\d{3}[A-Z]\b"),
     pc(Kind::MRN, r"(?i)\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{5,12})\b"),
     pc(Kind::NPI, r"(?i)\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b"),
     pc(Kind::DEA, r"(?i)\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b"),
@@ -337,6 +343,7 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::UK_NINO => validators::uk_nino(raw),
         Kind::AU_TFN => validators::au_tfn(raw),
         Kind::AADHAAR => validators::aadhaar(raw),
+        Kind::IT_CF => validators::codice_fiscale(raw),
         Kind::DOB => validators::date_plausible(raw),
         Kind::SSN => validators::ssn(raw),
         Kind::IP => validators::ipv4_octets(raw),
@@ -671,6 +678,27 @@ mod validators {
             r => char::from_digit(r, 10).unwrap(),
         };
         raw.chars().nth(8) == Some(check)
+    }
+
+    /// Italian Codice Fiscale check character: positions alternate between
+    /// an "odd" substitution table and plain values; sum mod 26 → A–Z.
+    pub fn codice_fiscale(raw: &str) -> bool {
+        if raw.len() != 16 { return false; }
+        const ODD_D: [u32; 10] = [1, 0, 5, 7, 9, 13, 15, 17, 19, 21];
+        const ODD_L: [u32; 26] = [1, 0, 5, 7, 9, 13, 15, 17, 19, 21, 2, 4, 18, 20, 11, 3, 6, 8, 12, 14, 16, 10, 22, 25, 24, 23];
+        let mut total = 0u32;
+        for (i, c) in raw.chars().take(15).enumerate() {
+            let v = match (i % 2 == 0, c) {
+                (true, '0'..='9') => ODD_D[c as usize - '0' as usize],
+                (true, 'A'..='Z') => ODD_L[c as usize - 'A' as usize],
+                (false, '0'..='9') => c as u32 - '0' as u32,
+                (false, 'A'..='Z') => c as u32 - 'A' as u32,
+                _ => return false,
+            };
+            total += v;
+        }
+        let check = (b'A' + (total % 26) as u8) as char;
+        raw.chars().nth(15) == Some(check)
     }
 
     /// SSA structural rules: area 000/666/9xx, group 00, and serial 0000
@@ -1292,6 +1320,14 @@ mod tests {
     }
 
     #[test]
+    fn codice_fiscale_check_character() {
+        let spans = run("dipendente RSSMRA85T10A562S in anagrafica");
+        assert_eq!(spans.len(), 1, "{spans:?}");
+        assert!(matches!(spans[0].kind, Kind::IT_CF));
+        assert!(run("ref RSSMRA85T10A562T invalid").iter().all(|s| !matches!(s.kind, Kind::IT_CF)));
+    }
+
+    #[test]
     fn uk_sort_codes_alias_as_bank() {
         let spans = run("transfer via sort code: 20-00-00 today");
         assert_eq!(spans.len(), 1, "{spans:?}");
@@ -1490,7 +1526,7 @@ mod tests {
             Kind::CREDITCARD, Kind::IBAN, Kind::US_BANK, Kind::SWIFT_BIC, Kind::EIN,
             Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING, Kind::CREDENTIAL,
             Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE, Kind::VIN, Kind::MRZ,
-            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR,
+            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR, Kind::IT_CF,
             Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::MEDICARE_MBI, Kind::CASE_NO,
             Kind::CRYPTO_WALLET, Kind::IPV6, Kind::MAC_ADDRESS, Kind::CUSTOM,
             Kind::PERSON_NER, Kind::ORG_NER, Kind::CODENAME_NER, Kind::LOCATION_NER,

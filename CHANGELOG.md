@@ -40,6 +40,9 @@ on an **open-core** model (see `OPEN-CORE.md`).
   construction, zero new dependencies (hand-rolled HTTP/1.1 on tokio),
   `ollama:*` models stay zero-egress. The desktop app stops being the only
   place the perimeter exists.
+- **Italian Codice Fiscale**: 16-char tax codes detected unanchored via the
+  rigid shape + check-character algorithm (odd/even substitution tables,
+  mod 26). 45 patterns.
 - **UK sort codes**: `sort code: 20-00-00` aliases via the banking anchor.
   44 patterns.
 - **Azure connection strings**: `AccountKey=`/`SharedAccessKey=` values
