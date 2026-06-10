@@ -99,7 +99,7 @@ or visit the hosted demo at **https://edenadiv.github.io/sentynyx-app/**. Type a
 
 Five layers run on every send and merge into one alias map:
 
-1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 42 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
+1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 43 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
 
 | Pack | Classes | Validation |
 | --- | --- | --- |

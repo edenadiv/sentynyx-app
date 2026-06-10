@@ -127,7 +127,7 @@
   <script>
   // Vendetta Engine — realtime PII / sensitive info detector
   (function(){
-    // Demo subset of the real 41-pattern engine (apps/desktop/src-tauri/src/vendetta.rs).
+    // Demo subset of the real 43-pattern engine (apps/desktop/src-tauri/src/vendetta.rs).
     // Checksum validators included so you can verify it isn't smoke: a Luhn-valid
     // card blocks, a one-digit mutation passes through. Names/orgs are the NER
     // layer's job in the desktop app — no hardcoded name lists here.
@@ -157,7 +157,17 @@
       if(['password','passwd','changeme','example','sample','dummy','placeholder','redacted','secret','your-','your_','xxxx','****','qwerty'].some(p=>l.includes(p))) return false;
       if(!/[\d\W_]/.test(raw)) return false;
       return entropy(raw)>=3.0; }
+    function mrzTd3(raw){
+      if(raw.length!==44) return false;
+      const val=c=> c>='0'&&c<='9' ? +c : c==='<' ? 0 : (c>='A'&&c<='Z' ? c.charCodeAt(0)-55 : null);
+      const check=(str,exp)=>{ const w=[7,3,1]; let sum=0;
+        for(let i=0;i<str.length;i++){ const v=val(str[i]); if(v===null) return false; sum+=v*w[i%3]; }
+        return String(sum%10)===exp; };
+      const comp=raw.slice(0,10)+raw.slice(13,20)+raw.slice(21,43);
+      return check(raw.slice(0,9),raw[9])&&check(raw.slice(13,19),raw[19])&&check(raw.slice(21,27),raw[27])&&check(comp,raw[43]);
+    }
     function validate(kind, raw){
+      if(kind==='MRZ') return mrzTd3(raw);
       if(kind==='CREDITCARD') return creditCard(raw);
       if(kind==='IBAN') return iban(raw);
       if(kind==='VIN') return vin(raw);
@@ -170,6 +180,7 @@
       { kind: 'IBAN',    re: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/g },
       { kind: 'CREDENTIAL', re: /\b(?:pass(?:word|wd|phrase)|pwd|secret|token|api[_-]?key|access[_-]?key|client[_-]?secret|auth[_-]?token|credentials?)\b["']?\s*(?:=>|[:=])\s*["']?([^\s"'`,;]{8,})/gi, cap: true },
       { kind: 'VIN',     re: /\b[A-HJ-NPR-Z0-9]{17}\b/g },
+      { kind: 'MRZ',     re: /(?:^|[^A-Z0-9<])([A-Z0-9<]{9}\d[A-Z<]{3}\d{6}\d[MFX<]\d{6}\d[A-Z0-9<]{14}\d{2})(?=[^A-Z0-9<]|$)/g, cap: true },
       { kind: 'JWT',     re: /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g },
       { kind: 'EMAIL',   re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
       { kind: 'PHONE',   re: /\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/g },
@@ -199,7 +210,7 @@
       EMAIL:'email', PHONE:'phone', SSN:'ssn', IP:'ip',
       APIKEY:'api-key', URL:'url', ADDRESS:'address', MONEY:'amount',
       NAME:'person', COMPANY:'entity', EMPID:'employee-id',
-      CREDITCARD:'card', IBAN:'iban', JWT:'jwt', VIN:'vin', CREDENTIAL:'credential'
+      CREDITCARD:'card', IBAN:'iban', JWT:'jwt', VIN:'vin', CREDENTIAL:'credential', MRZ:'passport-mrz'
     };
     function detect(text){
       const hits = [];
@@ -207,7 +218,16 @@
         p.re.lastIndex = 0;
         let m;
         while((m = p.re.exec(text)) !== null){
-          hits.push({ start:m.index, end:m.index+m[0].length, kind:p.kind, raw:m[0] });
+          let start = m.index, end = m.index + m[0].length, raw = m[0];
+          if(p.cap && m[1] !== undefined){
+            // Anchored patterns end with their capture group — the value is
+            // the trailing substring of the match (lookahead tails excluded).
+            raw = m[1];
+            start = end - raw.length;
+          }
+          if(validate(p.kind, raw)){
+            hits.push({ start, end, kind:p.kind, raw });
+          }
           if(m.index === p.re.lastIndex) p.re.lastIndex++;
         }
       }

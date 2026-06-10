@@ -22,6 +22,7 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "CREDITCARD", re: /\b\d(?:[ -]?\d){12,18}\b/g },
   { kind: "IBAN", re: /\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]){11,30}\b/g },
   { kind: "CONNECTION_STRING", re: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|amqps?):\/\/[^\s:/@]+:[^\s/@]+@[^\s/]+/gi },
+  { kind: "CONNECTION_STRING", re: /\b(?:AccountKey|SharedAccessKey)=([A-Za-z0-9+/]{43,86}={0,2})/gi, cap: true },
   { kind: "APIKEY", re: /\baws_?secret_?access_?key\b["']?\s*[:=]\s*["']?([A-Za-z0-9/+=]{40})\b/gi, cap: true },
   { kind: "APIKEY", re: /\bauthorization:\s*bearer\s+([A-Za-z0-9._~+/-]{16,}=*)/gi, cap: true },
   // Generic credential assignments — broad anchor, the real decision lives in

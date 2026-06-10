@@ -179,6 +179,10 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     // Database/broker connection strings with embedded credentials — the
     // password travels in the URI, so this is as sensitive as an API key.
     p(Kind::CONNECTION_STRING, r"(?i)\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|rediss|amqps?)://[^\s:/@]+:[^\s/@]+@[^\s/]+"),
+    // Azure storage/service-bus connection strings: the AccountKey/
+    // SharedAccessKey value IS the credential (88-char base64). Anchored on
+    // the key name, so prose about "account keys" never matches.
+    pc(Kind::CONNECTION_STRING, r"(?i)\b(?:AccountKey|SharedAccessKey)=([A-Za-z0-9+/]{43,86}={0,2})"),
     // AWS secret access keys have no distinctive prefix (40 base64 chars), so
     // they're context-anchored on the variable name they always travel with.
     pc(Kind::APIKEY, r#"(?i)\baws_?secret_?access_?key\b["']?\s*[:=]\s*["']?([A-Za-z0-9/+=]{40})\b"#),
@@ -1278,6 +1282,11 @@ mod tests {
         // No credentials in the URI → not a secret; URL pattern may still alias.
         let spans = run("postgres://db.internal:5432/main is the host");
         assert!(spans.iter().all(|s| !matches!(s.kind, Kind::CONNECTION_STRING)));
+        // Azure storage conn string: the AccountKey value blocks.
+        let spans = run("DefaultEndpointsProtocol=https;AccountName=snx;AccountKey=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU2Nzg5QUJDRA==;EndpointSuffix=core.windows.net");
+        assert!(spans.iter().any(|s| matches!(s.kind, Kind::CONNECTION_STRING)), "{spans:?}");
+        // Prose about account keys never matches (anchor requires '=value').
+        assert!(run("rotate the AccountKey quarterly per policy").is_empty());
     }
 
     #[test]
