@@ -38,6 +38,9 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const [pct, setPct] = useState(0);
 
   useEffect(() => {
+    // Browser preview has no Tauri bridge — listen() would throw
+    // (transformCallback on undefined), unlike invoke() which rejects.
+    if (!isTauri) return;
     modelsIpc.status().then(setModelStatus).catch(() => {});
     modelsIpc.getParanoid().then(setParanoid).catch(() => {});
     const unP = onModelProgress(e => { setDownloadingId(e.id); setPct(e.percent); });
