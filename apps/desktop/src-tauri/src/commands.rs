@@ -215,6 +215,9 @@ pub struct PipelineTrace {
     pub ner_error: Option<String>,
     /// Matches from the user-defined custom watchlist (Settings → Watchlist).
     pub custom_spans_count: usize,
+    /// Column-driven hits from pasted tabular data (CSV/TSV headers).
+    #[serde(default)]
+    pub structured_spans_count: usize,
     pub merge_ms: u64,
     pub alias_ms: u64,
     /// Total wall-clock inside send() from entry to just before the stream
@@ -338,6 +341,7 @@ pub async fn send(
 
     let t_merge = std::time::Instant::now();
     let structured_spans_v = structured_stage(&args.text, &disabled_packs);
+    let structured_spans_count = structured_spans_v.len();
     let merged_pre_alias = crate::detect::merge_spans(
         crate::detect::merge_spans(
             crate::detect::merge_spans(regex_spans, structured_spans_v),
@@ -404,6 +408,7 @@ pub async fn send(
         ner_status: ner_status.to_string(),
         ner_error: ner_error.clone(),
         custom_spans_count,
+        structured_spans_count,
         merge_ms,
         alias_ms,
         total_pre_dispatch_ms: t_entry.elapsed().as_millis() as u64,

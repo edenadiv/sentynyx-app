@@ -107,6 +107,14 @@ function TraceRow({ trace, active, onClick }: { trace: TraceRecord; active: bool
           color={t.ner_status === "ok" ? "teal" : "muted"}
           tooltip={t.ner_status}
         />
+        {(t.structured_spans_count ?? 0) > 0 && (
+          <Chip label="csv cols" count={t.structured_spans_count} color="neon"
+            tooltip="column-driven hits from pasted tabular data" />
+        )}
+        {(t.custom_spans_count ?? 0) > 0 && (
+          <Chip label="watchlist" count={t.custom_spans_count} color="neon"
+            tooltip="custom watchlist terms" />
+        )}
         {trace.stream && (
           <Chip
             label={`ttft ${trace.stream.ttft_ms ?? "—"}ms`}
@@ -206,7 +214,7 @@ function TraceDetail({ record }: { record: TraceRecord }) {
         {p?.error && <div style={cx.errHint}>Paranoid error: {p.error}</div>}
       </Section>
 
-      <Section title={`DETECTIONS — regex ${t.regex_spans_count} · ner ${t.ner_spans_count} · merged ${t.merged_spans_count}`}>
+      <Section title={`DETECTIONS — regex ${t.regex_spans_count} · structured ${t.structured_spans_count ?? 0} · custom ${t.custom_spans_count ?? 0} · ner ${t.ner_spans_count} · merged ${t.merged_spans_count}`}>
         <div style={cx.spanCols}>
           <SpanColumn title="regex only" spans={t.regex_spans} emptyHint="no regex hits" />
           <SpanColumn title="ner only" spans={t.ner_spans} emptyHint={t.ner_status !== "ok" ? `ner ${t.ner_status}` : "no ner hits"} />

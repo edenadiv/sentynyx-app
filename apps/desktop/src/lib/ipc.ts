@@ -18,6 +18,7 @@ export interface PipelineTrace {
   ner_error: string | null;
   /// Matches from the user-defined custom watchlist (Settings → Watchlist).
   custom_spans_count: number;
+  structured_spans_count: number;
   merge_ms: number;
   alias_ms: number;
   total_pre_dispatch_ms: number;
