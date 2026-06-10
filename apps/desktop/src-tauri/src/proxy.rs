@@ -63,6 +63,20 @@ pub async fn status() -> Option<u16> {
     RUNNING.lock().await.as_ref().map(|r| r.port)
 }
 
+/// Persist (or clear) the last startup failure so the Settings UI can explain
+/// why the proxy is off after a failed autostart — stderr isn't a UX surface.
+pub async fn record_error(store: &SharedStore, err: Option<&str>) {
+    let s = store.lock().await;
+    let _ = match err {
+        Some(e) => s.conn.execute(
+            "INSERT INTO settings(key,value) VALUES('proxy_last_error',?1)
+             ON CONFLICT(key) DO UPDATE SET value=?1",
+            [e],
+        ),
+        None => s.conn.execute("DELETE FROM settings WHERE key='proxy_last_error'", []),
+    };
+}
+
 pub async fn stop() {
     if let Some(r) = RUNNING.lock().await.take() {
         let _ = r.shutdown.send(true);
@@ -208,11 +222,26 @@ async fn handle_conn(mut sock: TcpStream, store: SharedStore) -> Result<(), Stri
 
     match (req.method.as_str(), req.path.split('?').next().unwrap_or("")) {
         ("GET", "/v1/models") => {
-            let data: Vec<Value> = ADVERTISED_MODELS
+            let mut data: Vec<Value> = ADVERTISED_MODELS
                 .iter()
                 .filter(|(_, provider)| keys::has(provider))
                 .map(|(id, provider)| json!({ "id": id, "object": "model", "owned_by": provider }))
                 .collect();
+            // Live Ollama models, best-effort: a quick /api/tags probe so SDK
+            // clients can discover `ollama:*` ids. Down/slow daemon → skipped.
+            let base = crate::commands::read_ollama_base_url(&store).await;
+            if let Ok(Ok(resp)) = tokio::time::timeout(
+                std::time::Duration::from_millis(600),
+                reqwest::Client::new().get(format!("{}/api/tags", base.trim_end_matches('/'))).send(),
+            ).await {
+                if let Ok(v) = resp.json::<Value>().await {
+                    for m in v["models"].as_array().unwrap_or(&vec![]) {
+                        if let Some(name) = m["name"].as_str() {
+                            data.push(json!({ "id": format!("ollama:{name}"), "object": "model", "owned_by": "ollama" }));
+                        }
+                    }
+                }
+            }
             write_json(&mut sock, "200 OK", &json!({ "object": "list", "data": data })).await
         }
         ("POST", "/v1/chat/completions") => chat_completions(&mut sock, store, &req.body).await,

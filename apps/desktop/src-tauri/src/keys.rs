@@ -69,6 +69,9 @@ pub enum SetOutcome {
 }
 
 pub fn set(provider: &str, secret: &str) -> Result<SetOutcome, keyring::Error> {
+    // Keys arrive from paste buffers — strip the whitespace that turns a
+    // valid key into a mystifying 401.
+    let secret = secret.trim();
     // Dev (unsigned) builds: keychain silently "succeeds" but doesn't persist,
     // so we write to the file and mirror-write to keychain as a no-op bonus.
     // Release builds: keychain is primary, file is a break-glass fallback for

@@ -255,3 +255,20 @@ textarea::placeholder { color: rgba(255,255,255,0.25); }
   from { opacity:1; transform:translate(0,0) scale(1) }
   to { opacity:0; transform:translate(calc(60vw - 50%), -80vh) scale(0.3) }
 }
+
+
+/* --- Accessibility -------------------------------------------------------
+   Keyboard navigation gets a visible ring (mouse clicks don't), and users
+   who ask the OS for less motion get exactly that. */
+button:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--neon);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

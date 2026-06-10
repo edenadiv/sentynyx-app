@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useEscape } from "../lib/useEscape";
 import type { CSSProperties } from "react";
 
 export function AgentDAG({ onClose }: { onClose: () => void }) {
+  useEscape(onClose);
   const [step, setStep] = useState(0);
   const nodes: { id:string; label:string; x:number; y:number; kind:"user"|"vend"|"llm"|"tool"; model?:string }[] = [
     { id:"prompt", label:"USER PROMPT",         x:80,  y:140, kind:"user" },
@@ -40,7 +42,7 @@ export function AgentDAG({ onClose }: { onClose: () => void }) {
         <div style={ag.header}>
           <div>
             <div style={{ fontSize:10, letterSpacing:4, color:"var(--ink-3)", fontFamily:"'JetBrains Mono',monospace" }}>
-              AGENT MODE · <span style={{ color:"var(--neon)" }}>CONCEPT PREVIEW</span>
+              AGENT MODE · <span style={{ color:"#ffb454", border:"1px solid rgba(255,180,84,0.4)", borderRadius:3, padding:"1px 6px" }}>⚠ CONCEPT PREVIEW — NOT FUNCTIONAL YET</span>
             </div>
             <div style={{ fontFamily:"'Instrument Serif',serif", fontSize:32, marginTop:4 }}>
               Tool-chain <em style={{ color:"var(--neon)" }}>execution</em>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useEscape } from "../lib/useEscape";
 import type { CSSProperties } from "react";
 import { ipc, isTauri, modelsIpc } from "../lib/ipc";
 import type { AuditEntry, AuditMetrics, AllModelStatus } from "../lib/types";
@@ -9,6 +10,7 @@ import { modelStatusKind } from "../lib/types";
 // made-up "SOC 2 / HIPAA COMPLIANT" tiles; a public app must never claim
 // certifications it doesn't hold.)
 export function ComplianceDashboard({ onClose }: { onClose: () => void }) {
+  useEscape(onClose);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [metrics, setMetrics] = useState<AuditMetrics>({
     redactions_total: 0, blocks_total: 0, classes: 0,

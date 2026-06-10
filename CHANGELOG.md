@@ -8,6 +8,22 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **Seasoning pass — every surface polished**: provider errors are now
+  human (parsed JSON message + plain-language hint per status, instead of
+  raw HTTP bodies); Google API keys moved out of URLs into headers; every
+  overlay closes on Escape; the command palette lost its two vestigial
+  fake entries (Knowledge Atlas, Switch Role) and gained real ones (Tune
+  Detection, Audit Log); a live `⇄ proxy :4242` chip appears in the top
+  bar when the privacy proxy is running and failed autostarts surface
+  their reason in Settings; `/v1/models` on the proxy now lists live
+  Ollama models; the empty state points at Settings when no provider is
+  configured; pasted API keys are trimmed; a llama.cpp init failure now
+  degrades to regex+NER instead of aborting the app; alias-map
+  persistence failures fail the send instead of silently forking aliases;
+  keyboard-focus rings and `prefers-reduced-motion` are respected; the
+  first-run wizard quotes real model sizes (83 MB, 468 MB) and mentions
+  detection packs; assorted copy de-jargoned (boot lines, onboarding,
+  agent preview labeled "not functional yet").
 - **Structured-data scanning**: pasted CSV/TSV/semicolon/pipe tables get
   column-aware detection — headers like `ssn`, `email`, `card_number`,
   `salary`, `full_name` mark every cell in the column sensitive even when

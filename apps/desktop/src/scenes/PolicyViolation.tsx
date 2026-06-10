@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useEscape } from "../lib/useEscape";
 import type { BlockReason } from "../lib/types";
 
 interface Props {
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function PolicyViolation({ rule, onDismiss, onRemoveAndRetry, onSwitchToLocal }: Props) {
+  useEscape(onDismiss);
   // Stays until the user clicks something — no auto-dismiss, because a
   // policy block on an outbound payload is the kind of thing a user should
   // make a conscious choice about, not have wiped off their screen.

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
-export type CmdKey = "orbital"|"consensus"|"compliance"|"agent"|"newchat"|"toggle-v"|"policy"|"audit"|"atlas"|"role"|"settings"|"tour";
+export type CmdKey = "orbital"|"consensus"|"compliance"|"agent"|"newchat"|"toggle-v"|"policy"|"audit"|"settings"|"tour";
 
 const ALL: { k: CmdKey; t: string; g: string; sh?: string }[] = [
   { k:"tour",       t:"Take the guided tour",         g:"HELP" },
@@ -12,10 +12,8 @@ const ALL: { k: CmdKey; t: string; g: string; sh?: string }[] = [
   { k:"newchat",    t:"New Transmission",             g:"CHAT",  sh:"⌘N" },
   { k:"toggle-v",   t:"Toggle Vendetta Panel",        g:"VIEW",  sh:"⌘V" },
   { k:"settings",   t:"API Keys & Providers",         g:"ADMIN", sh:"⌘," },
-  { k:"policy",     t:"Edit Policy Rules",            g:"ADMIN" },
-  { k:"audit",      t:"Open Audit Log",               g:"ADMIN" },
-  { k:"atlas",      t:"Knowledge Atlas",              g:"DATA"  },
-  { k:"role",       t:"Switch Role · Legal / Eng / HR",g:"ADMIN" },
+  { k:"policy",     t:"Tune Detection · Packs & Watchlist", g:"ADMIN" },
+  { k:"audit",      t:"Open Audit Log & Privacy Posture",   g:"ADMIN", sh:"⌘D" },
 ];
 
 export function CommandPalette({ open, onClose, onAction }: { open: boolean; onClose: () => void; onAction: (k: CmdKey) => void }) {

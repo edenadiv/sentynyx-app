@@ -30,7 +30,7 @@ impl Provider for OpenRouter {
         if !res.status().is_success() {
             let s = res.status();
             let t = res.text().await.unwrap_or_default();
-            return Err(format!("openrouter {}: {}", s, t));
+            return Err(super::friendly_http_error("openrouter", s.as_u16(), &t));
         }
         let mut stream = res.bytes_stream();
         let mut buf = String::new();

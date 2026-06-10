@@ -26,27 +26,31 @@ use super::{Detector, DetectError, Source};
 // avoids the C++ teardown ordering problem.
 // ---------------------------------------------------------------------------
 
-static LLAMA_BACKEND: OnceLock<&'static LlamaBackend> = OnceLock::new();
+static LLAMA_BACKEND: OnceLock<Result<&'static LlamaBackend, String>> = OnceLock::new();
 
-fn get_or_init_backend() -> &'static LlamaBackend {
-    LLAMA_BACKEND.get_or_init(|| {
-        match LlamaBackend::init() {
-            Ok(mut b) => {
-                // Silence llama.cpp's stderr chatter at init. Every
-                // `LlamaModel::load_from_file` dumps ~40 lines of
-                // `llama_model_loader: loaded meta data`, `print_info: ...`,
-                // etc. — pure noise for our purposes and clutters the
-                // DevInspector + production logs. Real errors still come
-                // back as typed `LlamaCppError` values via the Rust API.
-                b.void_logs();
-                Box::leak(Box::new(b)) as &'static LlamaBackend
+/// Initialize llama.cpp once. A backend failure (Metal driver glitch, missing
+/// GPU runtime) must NOT abort the app — the paranoid/local layer degrades to
+/// unavailable and everything else (regex, NER, cloud sends) keeps working.
+fn get_or_init_backend() -> Result<&'static LlamaBackend, String> {
+    LLAMA_BACKEND
+        .get_or_init(|| {
+            match LlamaBackend::init() {
+                Ok(mut b) => {
+                    // Silence llama.cpp's stderr chatter at init. Every
+                    // `LlamaModel::load_from_file` dumps ~40 lines of
+                    // `llama_model_loader: loaded meta data` etc. — pure
+                    // noise that clutters the DevInspector + logs. Real
+                    // errors still come back as typed `LlamaCppError`s.
+                    b.void_logs();
+                    Ok(Box::leak(Box::new(b)) as &'static LlamaBackend)
+                }
+                Err(e) => {
+                    eprintln!("[llm] backend init failed — local inference disabled: {e}");
+                    Err(e.to_string())
+                }
             }
-            Err(llama_cpp_2::LlamaCppError::BackendAlreadyInitialized) => {
-                panic!("LLAMA_BACKEND OnceLock raced — should be impossible");
-            }
-            Err(e) => panic!("llama backend init failed: {e}"),
-        }
-    })
+        })
+        .clone()
 }
 
 // ---------------------------------------------------------------------------
@@ -136,7 +140,7 @@ impl ParanoidDetector {
             if models::verify_sha256(&p, PARANOID_LLM.sha256).is_err() {
                 return None;
             }
-            let backend = get_or_init_backend();
+            let backend = get_or_init_backend().ok()?;
             let params = LlamaModelParams::default();
             let model = LlamaModel::load_from_file(backend, &p, &params).ok()?;
             Some(Mutex::new(ParanoidRuntime {
@@ -237,7 +241,8 @@ fn stream_chat_inference(
     user_text: &str,
     tx: &mpsc::Sender<ChunkEvent>,
 ) -> Result<(), llama_cpp_2::LlamaCppError> {
-    let backend = get_or_init_backend();
+    let backend = get_or_init_backend()
+        .map_err(|_| llama_cpp_2::LlamaCppError::BackendAlreadyInitialized)?;
 
     let prompt = build_chat_prompt(user_text);
     let tokens = model
@@ -322,7 +327,8 @@ fn stream_chat_inference(
 }
 
 fn run_inference(model: &LlamaModel, text: &str) -> Result<String, llama_cpp_2::LlamaCppError> {
-    let backend = get_or_init_backend();
+    let backend = get_or_init_backend()
+        .map_err(|_| llama_cpp_2::LlamaCppError::BackendAlreadyInitialized)?;
 
     let prompt = build_paranoid_prompt(text);
 

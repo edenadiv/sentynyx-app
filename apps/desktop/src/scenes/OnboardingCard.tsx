@@ -70,7 +70,7 @@ export function OnboardingCard({
           }
           label="Sentynyx Local"
           value={
-            localReady ? "Qwen 2.5 0.5B ready · on-device chat available"
+            localReady ? "Qwen 2.5 0.5B ready · zero-egress sends, no API key needed"
             : localDownloading ? "Downloading…"
             : "Not installed — optional, use for fully-offline sends"
           }

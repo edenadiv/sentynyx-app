@@ -45,6 +45,11 @@ function EmptyState({ stats }: { stats?: TranscriptStats }) {
         <div style={cx.emptySub}>
           Any model · any provider · zero sensitive data leaks the perimeter.
         </div>
+        {stats && stats.providers === 0 && (
+          <div style={{ marginTop: 10, fontSize: 12, color: "#ffb454", fontFamily: "'JetBrains Mono',monospace" }}>
+            No providers configured yet — add an API key in Settings (⌘,), or install Ollama for zero-egress local models.
+          </div>
+        )}
         <div style={cx.suggest}>
           {SUGGESTIONS.map((s, i) => (
             <button key={i} style={cx.sugCard}>

@@ -414,7 +414,8 @@ function cardFor(id: StepId, c: CardCtx): { title: string; body: ReactNode; butt
         body: (
           <p style={gt.p}>
             Detection packs, your own watchlist, BYOK cloud models, local models
-            via Ollama — all behind the same rule: <b>nothing sensitive leaves
+            via Ollama, and a privacy proxy that shields your other tools
+            (Settings → Privacy proxy) — all behind the same rule: <b>nothing sensitive leaves
             raw</b>. Re-run this tour anytime from ⌘K → "Take the guided tour".
             The signed audit log lives behind ⌘D.
           </p>

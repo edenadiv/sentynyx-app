@@ -135,8 +135,12 @@ pub fn run() {
                         (enabled, port)
                     };
                     if enabled {
-                        if let Err(e) = proxy::start(proxy_store, port).await {
-                            eprintln!("[proxy] autostart failed: {e}");
+                        match proxy::start(proxy_store.clone(), port).await {
+                            Ok(_) => proxy::record_error(&proxy_store, None).await,
+                            Err(e) => {
+                                eprintln!("[proxy] autostart failed: {e}");
+                                proxy::record_error(&proxy_store, Some(&e)).await;
+                            }
                         }
                     }
                 });

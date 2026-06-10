@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
+import { useEscape } from "../lib/useEscape";
 import type { CSSProperties } from "react";
 import { MODELS, PROVIDER_GLYPHS } from "../lib/models";
 import type { Model } from "../lib/types";
 
 export function OrbitalPicker({ model, setModel, onClose, models = MODELS }: { model: Model; setModel: (m: Model) => void; onClose: () => void; models?: Model[] }) {
+  useEscape(onClose);
   const [hover, setHover] = useState<string | null>(null);
   const [rot, setRot] = useState(0);
   const rafRef = useRef(0);

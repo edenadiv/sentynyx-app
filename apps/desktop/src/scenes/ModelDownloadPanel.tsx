@@ -93,7 +93,7 @@ export function ModelDownloadPanel({ onClose }: Props) {
           Enable semantic detection
         </div>
         <div style={{ fontSize: 13, color: "#9ba3b4", marginBottom: 20 }}>
-          Downloads run from HuggingFace Hub. Files are SHA-256 verified and stored in your app data directory.
+          Downloads run from HuggingFace Hub. Files are SHA-256 verified and stored in your app data directory; they're excluded from data exports.
         </div>
 
         {rows.map(r => (

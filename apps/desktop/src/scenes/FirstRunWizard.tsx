@@ -92,7 +92,9 @@ export function FirstRunWizard({ onClose }: Props) {
               Sentynyx wraps every prompt in the <strong>Vendetta perimeter</strong> — a realtime
               privacy filter that catches sensitive tokens (emails, SSNs, API keys, names) and
               replaces them with opaque aliases <em>before</em> the payload reaches a third-party
-              model. You see the real values; the model only ever sees the aliases.
+              model. You see the real values; the model only ever sees the aliases. Detection is
+              organized in packs — payment, identity, medical, legal and more — each toggleable
+              in Settings, with your own custom watchlist on top.
             </p>
             <p style={fw.body}>
               Two quick steps: one API key so we have something to send to, and the optional ML
@@ -163,7 +165,7 @@ export function FirstRunWizard({ onClose }: Props) {
             <p style={fw.body}>
               Regex catches the obvious PII. The <strong>NER model</strong> (GLiNER, ~600 MB)
               catches names, orgs, and custom codenames regex can't. The <strong>paranoid LLM</strong>
-              {" "}(Qwen 2.5 0.5B, ~470 MB, optional) does a deeper semantic sweep for anything the
+              {" "}(Qwen 2.5 0.5B, 468 MB, optional) does a deeper semantic sweep for anything the
               earlier layers missed. All inference runs locally — nothing about these models
               leaves your machine.
             </p>
@@ -171,7 +173,7 @@ export function FirstRunWizard({ onClose }: Props) {
             <ModelRow
               id="gliner-small-v2.1"
               label="Semantic NER (GLiNER)"
-              sizeMb={611}
+              sizeMb={83}
               required
               ready={Boolean(nerReady)}
               downloadingId={downloadingId}

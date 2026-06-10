@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useEscape } from "../lib/useEscape";
 import type { CSSProperties } from "react";
 import { MODELS, PROVIDER_GLYPHS } from "../lib/models";
 import { ipc, onStreamChunk, isTauri } from "../lib/ipc";
@@ -7,6 +8,7 @@ import type { Model } from "../lib/types";
 interface Props { prompt: string; convId: string; onClose: () => void }
 
 export function ConsensusArena({ prompt, convId, onClose }: Props) {
+  useEscape(onClose);
   const models = [MODELS[3], MODELS[0], MODELS[6]];
   const [text, setText] = useState<string[]>(["", "", ""]);
   const [done, setDone] = useState<boolean[]>([false, false, false]);

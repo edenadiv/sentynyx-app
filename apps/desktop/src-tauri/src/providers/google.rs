@@ -10,18 +10,20 @@ pub struct Google;
 impl Provider for Google {
     async fn stream(&self, api_key: &str, model: &str, prompt: &str, tx: mpsc::Sender<ChunkEvent>) -> Result<(), String> {
         let m = model_name(model);
+        // Key travels in a header, not the query string — query params end up
+        // in error strings and proxy logs.
         let url = format!(
-            "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse&key={}",
-            m, api_key
+            "https://generativelanguage.googleapis.com/v1beta/models/{}:streamGenerateContent?alt=sse",
+            m
         );
         let body = json!({
             "contents": [{"role":"user","parts":[{"text": prompt}]}],
         });
-        let res = reqwest::Client::new().post(&url).json(&body).send().await.map_err(|e| e.to_string())?;
+        let res = reqwest::Client::new().post(&url).header("x-goog-api-key", api_key).json(&body).send().await.map_err(|e| e.to_string())?;
         if !res.status().is_success() {
             let s = res.status();
             let t = res.text().await.unwrap_or_default();
-            return Err(format!("google {}: {}", s, t));
+            return Err(super::friendly_http_error("google", s.as_u16(), &t));
         }
         let mut stream = res.bytes_stream();
         let mut buf = String::new();

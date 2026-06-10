@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useEscape } from "../lib/useEscape";
 import type { CSSProperties } from "react";
 import { ipc, isTauri, modelsIpc, onModelProgress, onModelReady, dataIpc, telemetryIpc, teamIpc, settingsIpc, buildInfoIpc, ollamaIpc, proxyIpc, type TeamStatus, type SyncOutcome, type BuildInfo, type OllamaHealth, type ProxyStatus } from "../lib/ipc";
 import { setCustomTerms, setDisabledPacks, TOGGLEABLE_PACKS } from "../lib/vendetta";
@@ -14,6 +15,7 @@ const PROVIDERS: { id: "openai"|"anthropic"|"google"|"xai"|"openrouter"; name: s
 ];
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
+  useEscape(onClose);
   const [configured, setConfigured] = useState<string[]>([]);
   const [drafts, setDrafts] = useState<Record<string,string>>({});
   const [status, setStatus] = useState<Record<string,string>>({});
@@ -326,6 +328,11 @@ function DataSection() {
             <div style={{ fontSize: 11, color: "#9ba3b4", fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
               Removes the Sentynyx app data directory (conversations, audit log, downloaded models, API keys in file + keychain). Irreversible.
             </div>
+            {deleteConfirm && !deleteStatus && (
+              <div style={{ fontSize: 11, color: "#ff99a8", marginTop: 6, fontFamily: "'JetBrains Mono', monospace" }}>
+                ⚠ This cannot be undone. Conversations, audit chain, models, and keys are all erased. Quit Sentynyx after it completes.
+              </div>
+            )}
             {deleteStatus && (
               <div style={{ fontSize: 11, color: deleteStatus.startsWith("✓") ? "#7cffb2" : "#ff99a8", marginTop: 6 }}>
                 {deleteStatus}
@@ -439,8 +446,11 @@ function PacksSection() {
 }
 
 function WatchlistSection() {
-  const [text, setText] = useState("");
+  const [text, setTextRaw] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  // Editing invalidates the last save confirmation — clear it so the UI
+  // never claims "✓ N terms active" for text that isn't saved yet.
+  const setText = (v: string) => { setTextRaw(v); setStatus(null); };
 
   useEffect(() => {
     if (!isTauri) return;
@@ -463,7 +473,11 @@ function WatchlistSection() {
         await settingsIpc.set("custom_watchlist", JSON.stringify(capped));
       }
       setCustomTerms(capped); // live highlights update without restart
-      setStatus(`✓ ${capped.length} term${capped.length === 1 ? "" : "s"} active`);
+      setStatus(
+        terms.length > 200
+          ? `✓ ${capped.length} terms active — list capped at 200, ${terms.length - 200} dropped`
+          : `✓ ${capped.length} term${capped.length === 1 ? "" : "s"} active`
+      );
     } catch (e) {
       setStatus(`✗ ${String(e)}`);
     }
@@ -523,6 +537,12 @@ function ProxySection() {
       const s: ProxyStatus = await proxyIpc.status();
       setRunning(s.running);
       if (s.port) setPort(String(s.port));
+      if (!s.running) {
+        // A failed autostart (port in use, permissions) is recorded by the
+        // backend — surface the reason instead of a silent OFF.
+        const lastErr = await settingsIpc.get("proxy_last_error").catch(() => null);
+        if (lastErr) setStatus(`✗ last start failed: ${lastErr}`);
+      }
     } catch (e) { setStatus(`✗ ${String(e)}`); }
   };
 

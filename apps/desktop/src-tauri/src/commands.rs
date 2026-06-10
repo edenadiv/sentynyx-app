@@ -455,21 +455,37 @@ pub async fn send(
     let asst_msg_id = uuid::Uuid::new_v4().to_string();
     {
         let mut s = store.lock().await;
-        s.save_alias_state(&args.conv_id, &map, &counters).ok();
+        // Alias consistency is the product invariant — if the map can't
+        // persist, the same value would mint a different alias next send.
+        // Fail the send instead of silently forking the alias space.
+        s.save_alias_state(&args.conv_id, &map, &counters)
+            .map_err(|e| format!("failed to persist alias state: {e}"))?;
         let now = chrono::Utc::now().to_rfc3339();
-        s.insert_message(&MessageRow {
+        if let Err(e) = s.insert_message(&MessageRow {
             id: user_msg_id.clone(), conv_id: args.conv_id.clone(), role: "user".into(),
             text_raw: args.text.clone(), text_aliased: aliased.clone(), spans: spans.clone(),
             created_at: now,
-        }).ok();
+        }) {
+            eprintln!("[store] user message insert failed (conv={}): {e}", args.conv_id);
+        }
         if !spans.is_empty() {
             let (ner_audit, reg_audit): (Vec<_>, Vec<_>) = spans.iter().cloned()
                 .partition(|sp| matches!(sp.kind,
                     vendetta::Kind::PERSON_NER | vendetta::Kind::ORG_NER
                     | vendetta::Kind::CODENAME_NER | vendetta::Kind::LOCATION_NER
                     | vendetta::Kind::EMPID_NER));
-            if !reg_audit.is_empty() { s.append_audit_for_spans(&reg_audit, "ALIAS", "regex").ok(); }
-            if !ner_audit.is_empty() { s.append_audit_for_spans(&ner_audit, "ALIAS", "ner").ok(); }
+            // The audit chain is a product promise — a failed append must at
+            // least be loud in the logs.
+            if !reg_audit.is_empty() {
+                if let Err(e) = s.append_audit_for_spans(&reg_audit, "ALIAS", "regex") {
+                    eprintln!("[audit] append failed (regex spans): {e}");
+                }
+            }
+            if !ner_audit.is_empty() {
+                if let Err(e) = s.append_audit_for_spans(&ner_audit, "ALIAS", "ner") {
+                    eprintln!("[audit] append failed (ner spans): {e}");
+                }
+            }
             let _ = app.emit("audit://new", ());
         }
     }
@@ -637,11 +653,13 @@ pub async fn send(
 
                     let mut s = store_clone.lock().await;
                     let now = chrono::Utc::now().to_rfc3339();
-                    s.insert_message(&MessageRow {
+                    if let Err(e) = s.insert_message(&MessageRow {
                         id: msg_id.clone(), conv_id: conv_id.clone(), role: "assistant".into(),
                         text_raw: assembled_raw.clone(), text_aliased: assembled_aliased.clone(),
                         spans: spans_for_reverse.clone(), created_at: now,
-                    }).ok();
+                    }) {
+                        eprintln!("[store] assistant message insert failed (conv={conv_id}): {e}");
+                    }
                     break;
                 }
                 ChunkEvent::Error(e) => {
@@ -792,10 +810,11 @@ pub async fn validate_api_key(args: ValidateKeyArgs) -> Result<ValidateKeyResult
             key.clone(),
         ),
         "google" => (
-            // Google uses the key as a query param, not a header.
-            format!("https://generativelanguage.googleapis.com/v1beta/models?key={key}"),
-            "",
-            String::new(),
+            // Key in a header, never the query string — URLs land in logs
+            // and error strings; headers don't.
+            "https://generativelanguage.googleapis.com/v1beta/models".to_string(),
+            "x-goog-api-key",
+            key.clone(),
         ),
         "xai" => (
             "https://api.x.ai/v1/models".to_string(),
@@ -929,7 +948,16 @@ pub async fn proxy_status() -> Result<ProxyStatus, String> {
 #[tauri::command]
 pub async fn proxy_start(state: State<'_, AppState>, port: Option<u16>) -> Result<ProxyStatus, String> {
     let port = port.unwrap_or(crate::proxy::DEFAULT_PORT);
-    let bound = crate::proxy::start(state.store.clone(), port).await?;
+    let bound = match crate::proxy::start(state.store.clone(), port).await {
+        Ok(p) => {
+            crate::proxy::record_error(&state.store, None).await;
+            p
+        }
+        Err(e) => {
+            crate::proxy::record_error(&state.store, Some(&e)).await;
+            return Err(e);
+        }
+    };
     {
         let s = state.store.lock().await;
         let _ = s.conn.execute(
@@ -945,6 +973,7 @@ pub async fn proxy_start(state: State<'_, AppState>, port: Option<u16>) -> Resul
 #[tauri::command]
 pub async fn proxy_stop(state: State<'_, AppState>) -> Result<ProxyStatus, String> {
     crate::proxy::stop().await;
+    crate::proxy::record_error(&state.store, None).await;
     {
         let s = state.store.lock().await;
         let _ = s.conn.execute(

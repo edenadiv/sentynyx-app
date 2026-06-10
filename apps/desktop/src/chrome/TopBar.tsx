@@ -18,6 +18,8 @@ interface Props {
   onOpenAgent: () => void;
   onOpenSettings?: () => void;
   onOpenDev?: () => void;
+  /// Loopback privacy-proxy port when it's running; null when off.
+  proxyPort?: number | null;
 }
 
 export function TopBar(p: Props) {
@@ -173,6 +175,17 @@ export function TopBar(p: Props) {
             letterSpacing: 0.5,
           }}
         >{chipLabel}</button>
+        {p.proxyPort != null && (
+          <button
+            onClick={p.onOpenSettings}
+            title={`Privacy proxy live — any OpenAI-compatible client can use http://127.0.0.1:${p.proxyPort}/v1`}
+            style={{
+              background: "rgba(124,255,178,0.08)", border: "1px solid rgba(124,255,178,0.35)",
+              color: "#7cffb2", borderRadius: 4, padding: "3px 8px", fontSize: 10,
+              fontFamily: "'JetBrains Mono', monospace", letterSpacing: 1, cursor: "pointer",
+            }}
+          >⇄ proxy :{p.proxyPort}</button>
+        )}
       </div>
     </div>
   );

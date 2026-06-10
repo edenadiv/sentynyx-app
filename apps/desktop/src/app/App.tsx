@@ -25,7 +25,7 @@ import { GuidedTour } from "../scenes/GuidedTour";
 import { OnboardingCard } from "../scenes/OnboardingCard";
 import { AboutDialog } from "../scenes/AboutDialog";
 import { MODELS, SAMPLE_CONVERSATIONS, ollamaModel } from "../lib/models";
-import { ipc, isTauri, onStreamChunk, onAuditNew, modelsIpc, settingsIpc, onTraceStream, onTraceParanoid, onModelReady, ollamaIpc } from "../lib/ipc";
+import { ipc, isTauri, onStreamChunk, onAuditNew, modelsIpc, settingsIpc, onTraceStream, onTraceParanoid, onModelReady, ollamaIpc , proxyIpc } from "../lib/ipc";
 import { CRITICAL, detect as detectLocal, setCustomTerms, setDisabledPacks } from "../lib/vendetta";
 import type { AllModelStatus, AuditMetrics, BlockReason, Conversation, Message, Model, Span, Tweaks } from "../lib/types";
 import { modelStatusKind } from "../lib/types";
@@ -63,6 +63,7 @@ export function App() {
   /// Live state backing the OnboardingCard — number of providers with keys
   /// and current status of the GGUF / ONNX model files. Empty-state UI only.
   const [configuredProviders, setConfiguredProviders] = useState<number>(0);
+  const [proxyPort, setProxyPort] = useState<number | null>(null);
   const [modelsStatus, setModelsStatus] = useState<AllModelStatus | null>(null);
   const [aboutOpen, setAboutOpen] = useState(false);
   /// The walkable guided tour (auto-offered once after the wizard; ⌘K → tour).
@@ -185,6 +186,7 @@ export function App() {
   useEffect(() => {
     if (!isTauri || settingsOpen) return;
     ipc.listConfiguredProviders().then(ps => setConfiguredProviders(ps.length)).catch(() => {});
+    if (isTauri) { proxyIpc.status().then(s => setProxyPort(s.port ?? null)).catch(() => {}); }
   }, [settingsOpen]);
 
   // Discover models on the local Ollama server (if running) and merge them into
@@ -273,6 +275,9 @@ export function App() {
     settingsIpc.set("alias_mode", aliasMode).catch(() => {});
   }, [aliasMode]);
 
+  // Instrumentation stays out of production consoles.
+  const dlog = (...a: unknown[]) => { if (import.meta.env.DEV) console.log(...a); };
+
   const runCmd = (k: CmdKey) => {
     if (k === "tour") setTourOpen(true);
     if (k === "orbital") setOrbitalOpen(true);
@@ -282,6 +287,8 @@ export function App() {
     if (k === "settings") setSettingsOpen(true);
     if (k === "toggle-v") setVendettaOpen(o => !o);
     if (k === "newchat") newTransmission();
+    if (k === "policy") setSettingsOpen(true);
+    if (k === "audit") setComplianceOpen(true);
   };
 
   const newTransmission = async () => {
@@ -302,12 +309,12 @@ export function App() {
     // the client). The Rust side makes the authoritative host-aware decision:
     // a remote Ollama base URL is still aliased + blocked server-side.
     const isLocal = m.id === "sentynyx-local" || m.id.startsWith("ollama:");
-    console.log("[Sentynyx] send() fired", { textLen: text.length, spans: sp.length, model: m.id, activeConvo, isLocal });
+    dlog("[Sentynyx] send() fired", { textLen: text.length, spans: sp.length, model: m.id, activeConvo, isLocal });
     // Local never leaves the machine — critical egress rules don't apply.
     if (!isLocal) {
       const crit = sp.find(s => CRITICAL[s.kind]);
       if (crit) {
-        console.log("[Sentynyx] local critical class -> violation", crit.kind);
+        dlog("[Sentynyx] local critical class -> violation", crit.kind);
         const c = CRITICAL[crit.kind]!;
         setViolation({ kind: crit.kind, rule: c.name, class: c.class, desc: c.desc });
         return;
@@ -319,16 +326,16 @@ export function App() {
       // immediately. The X-ray beam only tells a story when there are spans
       // to alias; on a clean prompt it's a 2-second loading screen for
       // nothing.
-      console.log("[Sentynyx] no spans — skipping XrayBeam");
+      dlog("[Sentynyx] no spans — skipping XrayBeam");
       actuallyTransmit();
     } else {
       setXraying({ text, spans: sp });
-      console.log("[Sentynyx] xraying state set — XrayBeam should render");
+      dlog("[Sentynyx] xraying state set — XrayBeam should render");
     }
   };
 
   const actuallyTransmit = async () => {
-    console.log("[Sentynyx] actuallyTransmit fired (XrayBeam done)");
+    dlog("[Sentynyx] actuallyTransmit fired (XrayBeam done)");
     const pt = pendingTransmit.current;
     pendingTransmit.current = null;
     setXraying(null);
@@ -444,7 +451,8 @@ export function App() {
             onOpenCompliance={() => setComplianceOpen(true)}
             onOpenAgent={() => setAgentOpen(true)}
             onOpenSettings={() => setSettingsOpen(true)}
-            onOpenDev={() => setDevOpen(o => !o)} />
+            onOpenDev={() => setDevOpen(o => !o)}
+            proxyPort={proxyPort} />
           <div style={{ flex:1, display:"flex", flexDirection:"column", minHeight:0,
             marginRight: vendettaOpen ? 360 : 0, transition:"margin 0.35s" }}>
             {messages.length === 0 && isTauri && (
