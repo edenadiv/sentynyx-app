@@ -40,6 +40,8 @@ on an **open-core** model (see `OPEN-CORE.md`).
   construction, zero new dependencies (hand-rolled HTTP/1.1 on tokio),
   `ollama:*` models stay zero-egress. The desktop app stops being the only
   place the perimeter exists.
+- **French NIR**: anchored sécurité-sociale numbers validated by the
+  mod-97 key. 52 patterns, 13 national-ID schemes.
 - **Swedish personnummer + Dutch BSN**: personnummer unanchored
   (YYMMDD-XXXX shape + month/day plausibility + Luhn); BSN anchored with
   the elfproef. 51 patterns, 12 national-ID schemes.

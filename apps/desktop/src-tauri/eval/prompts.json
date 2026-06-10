@@ -1988,6 +1988,21 @@
    "id": "nl002",
    "text": "bsn 111222334 faalt de elfproef",
    "expected": []
+  },
+  {
+   "id": "fr001",
+   "text": "dossier patient, numéro de sécu: 1 85 05 78 006 084 91",
+   "expected": [
+    {
+     "kind": "FR_NIR",
+     "raw": "1 85 05 78 006 084 91"
+    }
+   ]
+  },
+  {
+   "id": "fr002",
+   "text": "nir: 1 85 05 78 006 084 92 clé invalide",
+   "expected": []
   }
  ]
 }
