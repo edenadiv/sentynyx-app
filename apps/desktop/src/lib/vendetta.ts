@@ -595,6 +595,117 @@ export function setCustomTerms(terms: string[]): void {
 }
 
 /** Local-only detect used for realtime highlights. Server-side detect owns the real alias map. */
+// ---------------------------------------------------------------------------
+// Structured-data stage (mirror of detect/structured.rs). Column headers in
+// pasted CSV/TSV/semicolon/pipe tables drive detection: every cell under an
+// `ssn`/`email`/`card_number`-style header is sensitive even when the bare
+// value matches no pattern. Same safety rules as Rust: checksum-invalid
+// values under blocking headers downgrade to CUSTOM (alias, never block),
+// ragged rows are skipped, 5k-cell cap.
+// ---------------------------------------------------------------------------
+
+const STRUCT_DELIMS = [",", "\t", ";", "|"];
+const STRUCT_MAX_CELLS = 5000;
+
+function kindForHeader(rawHeader: string): Kind | null {
+  const h = rawHeader.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ");
+  const words = new Set(h.split(/\s+/).filter(Boolean));
+  const has = (w: string) => words.has(w);
+  const contains = (sub: string) => h.includes(sub);
+  if (contains("social security") || has("ssn")) return "SSN";
+  if (contains("credit card") || contains("card number") || has("pan") || has("cc")) return "CREDITCARD";
+  if (has("iban")) return "IBAN";
+  if (has("routing") || has("aba") || contains("account number") || has("acct")) return "US_BANK";
+  if (has("swift") || has("bic")) return "SWIFT_BIC";
+  if (has("ein")) return "EIN";
+  if (has("itin")) return "US_ITIN";
+  if (has("sin")) return "CA_SIN";
+  if (has("nhs")) return "UK_NHS";
+  if (has("nino") || contains("national insurance")) return "UK_NINO";
+  if (has("tfn")) return "AU_TFN";
+  if (has("aadhaar") || has("aadhar")) return "AADHAAR";
+  if (has("mbi") || contains("medicare")) return "MEDICARE_MBI";
+  if (has("npi")) return "NPI";
+  if (has("dea")) return "DEA";
+  if (has("mrn") || contains("medical record")) return "MRN";
+  if (contains("member id") || contains("subscriber") || contains("policy number")) return "HEALTH_ID";
+  if (has("vin")) return "VIN";
+  if (has("passport")) return "PASSPORT";
+  if (contains("driver") || has("dl") || contains("licen")) return "DRIVERS_LICENSE";
+  if (has("dob") || contains("birth")) return "DOB";
+  if (has("email") || has("mail")) return "EMAIL";
+  if (has("phone") || has("mobile") || has("cell") || has("tel") || has("fax")) return "PHONE";
+  if (has("ip") || contains("ip address")) return "IP";
+  if (has("mac")) return "MAC_ADDRESS";
+  if (has("wallet") || has("btc") || has("eth")) return "CRYPTO_WALLET";
+  if (contains("address") || has("street")) return "ADDRESS";
+  if (has("salary") || has("income") || contains("compensation") || has("wage")) return "MONEY";
+  if (has("name") || has("firstname") || has("lastname") || has("surname") || has("fullname")) return "NAME";
+  if (contains("case number") || has("docket")) return "CASE_NO";
+  if (has("password") || has("secret") || has("token") || contains("api key") || has("apikey")) return "CREDENTIAL";
+  return null;
+}
+
+const STRUCT_EMPTY = new Set(["", "null", "none", "n/a", "na", "nil", "-", "--", "unknown", "tbd"]);
+
+function headerShape(line: string): { delim: string; ncols: number } | null {
+  for (const d of STRUCT_DELIMS) {
+    if (!line.includes(d)) continue;
+    const cells = line.split(d);
+    const plausible = cells.length >= 2
+      && cells.every(c => { const t = c.trim(); return t.length > 0 && t.length <= 40 && !t.includes("@"); })
+      && cells.some(c => kindForHeader(c) !== null);
+    if (plausible) return { delim: d, ncols: cells.length };
+  }
+  return null;
+}
+
+export function structuredSpans(text: string): Span[] {
+  const out: Span[] = [];
+  let cellsSeen = 0;
+  const lines: { line: string; off: number }[] = [];
+  let off = 0;
+  for (const line of text.split("\n")) {
+    lines.push({ line, off });
+    off += line.length + 1;
+  }
+  let i = 0;
+  while (i < lines.length) {
+    const shape = headerShape(lines[i].line);
+    if (!shape) { i++; continue; }
+    const { delim, ncols } = shape;
+    let blockEnd = i + 1;
+    while (blockEnd < lines.length
+      && lines[blockEnd].line.split(delim).length === ncols
+      && lines[blockEnd].line.trim() !== "") blockEnd++;
+    if (blockEnd - i < 2) { i++; continue; }
+    const mapped = lines[i].line.split(delim).map(kindForHeader);
+    if (mapped.every(k => k === null)) { i = blockEnd; continue; }
+    for (let r = i + 1; r < blockEnd; r++) {
+      const { line, off: lineOff } = lines[r];
+      let cellOff = 0;
+      const cells = line.split(delim);
+      for (let col = 0; col < cells.length; col++) {
+        const cell = cells[col];
+        const kind = mapped[col];
+        if (kind) {
+          if (++cellsSeen > STRUCT_MAX_CELLS) return out;
+          const trimmed = cell.trim();
+          if (!STRUCT_EMPTY.has(trimmed.toLowerCase())) {
+            const k: Kind = validate(kind, trimmed) ? kind : (CRITICAL[kind] ? "CUSTOM" : kind);
+            const lead = cell.length - cell.trimStart().length;
+            const start = lineOff + cellOff + lead;
+            out.push({ start, end: start + trimmed.length, kind: k, raw: trimmed, alias: "", confidence: 0.9 });
+          }
+        }
+        cellOff += cell.length + delim.length;
+      }
+    }
+    i = blockEnd;
+  }
+  return out;
+}
+
 export function detect(text: string): Span[] {
   const hits: Span[] = [];
   for (const p of PATTERNS) {
@@ -616,6 +727,11 @@ export function detect(text: string): Span[] {
       }
       if (m.index === p.re.lastIndex) p.re.lastIndex++;
     }
+  }
+  // Structured (CSV column) spans: after built-ins so regex wins exact ties,
+  // before custom. Pack toggles apply per mapped kind, like Rust.
+  for (const sp of structuredSpans(text)) {
+    if (!DISABLED_PACKS.has(packFor(sp.kind))) hits.push(sp);
   }
   // Custom terms last: stable sort keeps built-ins ahead on exact ties.
   if (CUSTOM_RE) {
