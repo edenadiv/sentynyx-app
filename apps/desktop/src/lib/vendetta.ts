@@ -49,6 +49,8 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "AADHAAR", re: /\baadh?aar(?:\s*(?:no|number|#))?\.?[:\s]+(\d{4}[ -]?\d{4}[ -]?\d{4})\b/gi, cap: true },
   { kind: "IT_CF", re: /\b[A-Z]{6}\d{2}[ABCDEHLMPRST]\d{2}[A-Z]\d{3}[A-Z]\b/g },
   { kind: "ES_DNI", re: /\b(?:\d{8}|[XYZ]\d{7})[TRWAGMYFPDXBNJZSQVHLCKE]\b/g },
+  { kind: "BR_CPF", re: /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g },
+  { kind: "BR_CPF", re: /\bcpf(?:\s*(?:no|number|nº|#))?\.?[:\s]+(\d{3}\.?\d{3}\.?\d{3}-?\d{2})\b/gi, cap: true },
   { kind: "MRN", re: /\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9-]{5,12})\b/gi, cap: true },
   { kind: "NPI", re: /\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b/gi, cap: true },
   { kind: "DEA", re: /\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b/gi, cap: true },
@@ -85,7 +87,7 @@ export const LABELS: Record<Kind, string> = {
   DOB: "dob", PASSPORT: "passport", DRIVERS_LICENSE: "license", VIN: "vin",
   MRZ: "passport-mrz",
   US_ITIN: "itin", CA_SIN: "sin", UK_NHS: "nhs", UK_NINO: "nino",
-  AU_TFN: "tfn", AADHAAR: "aadhaar", IT_CF: "codice-fiscale", ES_DNI: "dni",
+  AU_TFN: "tfn", AADHAAR: "aadhaar", IT_CF: "codice-fiscale", ES_DNI: "dni", BR_CPF: "cpf",
   MRN: "mrn", NPI: "npi", DEA: "dea", HEALTH_ID: "member-id",
   MEDICARE_MBI: "medicare-mbi",
   CASE_NO: "case",
@@ -471,6 +473,20 @@ function codiceFiscale(raw: string): boolean {
   return raw[15] === String.fromCharCode(65 + (total % 26));
 }
 
+/** Brazilian CPF check digits — mirror of validators::br_cpf. */
+function brCpf(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 11) return false;
+  if (d.every(x => x === d[0])) return false;
+  for (const n of [9, 10]) {
+    let sum = 0;
+    for (let i = 0; i < n; i++) sum += d[i] * (n + 1 - i);
+    const r = sum % 11;
+    if (d[n] !== (r < 2 ? 0 : 11 - r)) return false;
+  }
+  return true;
+}
+
 /** Spanish DNI/NIE mod-23 check letter — mirror of validators::es_dni. */
 function esDni(raw: string): boolean {
   const LETTERS = "TRWAGMYFPDXBNJZSQVHLCKE";
@@ -569,7 +585,7 @@ function credentialValue(raw: string): boolean {
 export const TOGGLEABLE_PACKS: { id: string; name: string; hint: string }[] = [
   { id: "payment", name: "Payment & banking", hint: "cards · IBAN · routing · SWIFT · EIN" },
   { id: "identity", name: "Identity documents", hint: "DOB · passport + MRZ · driver's license · VIN" },
-  { id: "national-id", name: "National IDs", hint: "ITIN · SIN · NHS · NINO · TFN · Aadhaar · Codice Fiscale · DNI" },
+  { id: "national-id", name: "National IDs", hint: "ITIN · SIN · NHS · NINO · TFN · Aadhaar · CF · DNI · CPF" },
   { id: "medical", name: "Medical", hint: "MRN · NPI · DEA · member IDs · Medicare MBI" },
   { id: "legal", name: "Legal", hint: "case & docket numbers" },
   { id: "network", name: "Network & crypto", hint: "IPs · MAC · wallets" },
@@ -582,7 +598,7 @@ export function packFor(kind: Kind): string {
     case "DOB": case "PASSPORT": case "DRIVERS_LICENSE": case "VIN": case "MRZ":
       return "identity";
     case "US_ITIN": case "CA_SIN": case "UK_NHS": case "UK_NINO": case "AU_TFN": case "AADHAAR":
-    case "IT_CF": case "ES_DNI":
+    case "IT_CF": case "ES_DNI": case "BR_CPF":
       return "national-id";
     case "MRN": case "NPI": case "DEA": case "HEALTH_ID": case "MEDICARE_MBI":
       return "medical";
@@ -610,7 +626,7 @@ export function confidenceFor(kind: Kind): number {
   switch (kind) {
     case "CREDITCARD": case "IBAN": case "US_BANK": case "SWIFT_BIC":
     case "NPI": case "DEA": case "CA_SIN": case "UK_NHS": case "AU_TFN":
-    case "AADHAAR": case "IT_CF": case "ES_DNI": case "SSN": case "IP": case "IPV6": case "CRYPTO_WALLET":
+    case "AADHAAR": case "IT_CF": case "ES_DNI": case "BR_CPF": case "SSN": case "IP": case "IPV6": case "CRYPTO_WALLET":
     case "PRIVATE_KEY": case "CONNECTION_STRING": case "CUSTOM": case "VIN":
     case "MRZ":
       return 1.0;
@@ -642,6 +658,7 @@ export function validate(kind: Kind, raw: string): boolean {
     case "AADHAAR": return aadhaar(raw);
     case "IT_CF": return codiceFiscale(raw);
     case "ES_DNI": return esDni(raw);
+    case "BR_CPF": return brCpf(raw);
     case "DOB": return datePlausible(raw);
     case "SSN": return ssnStructure(raw);
     case "IP": return ipv4Octets(raw);

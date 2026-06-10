@@ -1933,6 +1933,21 @@
    "id": "es002",
    "text": "tracking 12345678A no es un dni",
    "expected": []
+  },
+  {
+   "id": "br001",
+   "text": "cadastro do cliente CPF 111.444.777-35 aprovado",
+   "expected": [
+    {
+     "kind": "BR_CPF",
+     "raw": "111.444.777-35"
+    }
+   ]
+  },
+  {
+   "id": "br002",
+   "text": "номер 111.444.777-36 нет — invalid check digits",
+   "expected": []
   }
  ]
 }
