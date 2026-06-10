@@ -319,8 +319,12 @@ async fn chat_completions(
         .map_err(|e| e.to_string())?;
     let disabled = crate::commands::read_disabled_packs(&store).await;
     let regex_spans = crate::commands::filter_disabled_packs(regex_spans, &disabled);
+    let structured = crate::commands::structured_stage(&flat, &disabled);
     let custom = crate::detect::custom::custom_spans(&store, &flat).await;
-    let merged = crate::detect::merge_spans(regex_spans, custom);
+    let merged = crate::detect::merge_spans(
+        crate::detect::merge_spans(regex_spans, structured),
+        custom,
+    );
 
     let prepared = prepare_payload(&flat, merged);
 

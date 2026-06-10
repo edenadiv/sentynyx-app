@@ -8,6 +8,13 @@ on an **open-core** model (see `OPEN-CORE.md`).
 
 ### Added
 
+- **Structured-data scanning**: pasted CSV/TSV/semicolon/pipe tables get
+  column-aware detection — headers like `ssn`, `email`, `card_number`,
+  `salary`, `full_name` mark every cell in the column sensitive even when
+  the bare value matches no pattern (undashed SSNs, arbitrary names).
+  Checksum-invalid values under blocking headers alias as `custom` instead
+  of hard-blocking; ragged rows are skipped so spans can never land at
+  wrong offsets. Runs in the app pipeline, the proxy, and the eval gate.
 - **Privacy proxy**: an OpenAI-compatible endpoint on `127.0.0.1` (Settings →
   Privacy proxy, default port 4242). Any tool with a `base_url` setting —
   Cursor, Continue, SDK scripts — gets the full perimeter: detection +

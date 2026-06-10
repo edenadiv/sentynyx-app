@@ -97,7 +97,7 @@ or visit the hosted demo at **https://edenadiv.github.io/sentynyx-app/**. Type a
 
 ## What it detects
 
-Four layers run on every send and merge into one alias map:
+Five layers run on every send and merge into one alias map:
 
 1. **Pattern engine** ([`vendetta.rs`](apps/desktop/src-tauri/src/vendetta.rs)) — 41 patterns across seven packs, each checksum-validated where one exists so a tracking number never masquerades as a card:
 
@@ -113,10 +113,11 @@ Four layers run on every send and merge into one alias map:
 
 † = **blocks egress entirely** — the request is never made.
 
-2. **Custom watchlist** (Settings) — your own codenames, client names, and hostnames, aliased as `⟦custom_NN⟧`.
+2. **Structured-data scanning** — paste a CSV/TSV export and column headers drive detection: every value under `ssn`, `email`, `card_number`, `salary`, `full_name`… is aliased even when the bare value matches no pattern (a 9-digit undashed SSN, an arbitrary name). Checksum-invalid values under blocking headers alias instead of blocking.
+3. **Custom watchlist** (Settings) — your own codenames, client names, and hostnames, aliased as `⟦custom_NN⟧`.
    Packs you never handle can be **switched off** (Settings → Detection packs); core PII and secrets are the safety floor and stay on. Every detection carries a **confidence score** (checksum-validated = 100%), visible in the Vendetta panel and Dev Inspector.
-3. **Semantic NER** ([`detect/ner.rs`](apps/desktop/src-tauri/src/detect/ner.rs)) — GLiNER-small (ONNX) for arbitrary names, orgs, codenames, locations that no pattern can enumerate.
-4. **Paranoid LLM** ([`detect/llm.rs`](apps/desktop/src-tauri/src/detect/llm.rs)) — a small local model catching semantic sensitivity ("layoffs", "legal hold") with no token signature.
+4. **Semantic NER** ([`detect/ner.rs`](apps/desktop/src-tauri/src/detect/ner.rs)) — GLiNER-small (ONNX) for arbitrary names, orgs, codenames, locations that no pattern can enumerate.
+5. **Paranoid LLM** ([`detect/llm.rs`](apps/desktop/src-tauri/src/detect/llm.rs)) — a small local model catching semantic sensitivity ("layoffs", "legal hold") with no token signature.
 
 Built-ins win on overlap, then watchlist, then NER ([`merge_spans`](apps/desktop/src-tauri/src/detect/mod.rs)). Aliases are stable per conversation and use `⟦…⟧` math brackets so the model doesn't mistake them for template variables. Streaming responses are re-hydrated across token boundaries.
 

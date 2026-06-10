@@ -1796,6 +1796,55 @@
    "id": "mbi002",
    "text": "medicare id: 1SG4-TE5-MK73 came back invalid from the clearinghouse",
    "expected": []
+  },
+  {
+   "id": "st001",
+   "text": "import this roster:\nname,ssn,email\nJordan Vance,486121234,jordan.v@example.com\nMia Torres,523887651,mia.t@example.com",
+   "expected": [
+    {
+     "kind": "NAME",
+     "raw": "Jordan Vance"
+    },
+    {
+     "kind": "SSN",
+     "raw": "486121234"
+    },
+    {
+     "kind": "EMAIL",
+     "raw": "jordan.v@example.com"
+    },
+    {
+     "kind": "NAME",
+     "raw": "Mia Torres"
+    },
+    {
+     "kind": "SSN",
+     "raw": "523887651"
+    },
+    {
+     "kind": "EMAIL",
+     "raw": "mia.t@example.com"
+    }
+   ]
+  },
+  {
+   "id": "st002",
+   "text": "salary bands:\nrole|salary\nstaff eng|248000\nsenior pm|212000",
+   "expected": [
+    {
+     "kind": "MONEY",
+     "raw": "248000"
+    },
+    {
+     "kind": "MONEY",
+     "raw": "212000"
+    }
+   ]
+  },
+  {
+   "id": "st003",
+   "text": "the report compares revenue, churn, and NRR for Q4 across regions",
+   "expected": []
   }
  ]
 }

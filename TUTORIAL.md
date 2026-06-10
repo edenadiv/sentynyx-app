@@ -110,6 +110,7 @@ This is the auditable proof: what the provider received never contained your sec
 Open **Settings** (`⌘,`):
 
 - **Detection packs** — switch off categories you never handle (payment, identity documents, national IDs, medical, legal, network/crypto) to cut noise. Core PII and secrets are the safety floor and can't be disabled. A disabled pack neither aliases nor blocks.
+- **Structured data** — pasting a CSV/TSV export? Column headers drive detection: every value under an `ssn`, `email`, `card_number`, or `full_name` header is aliased even when the bare value wouldn't match a pattern. No setup; it just works on tabular text.
 - **Custom watchlist** — add your own sensitive terms (project codenames, client names, internal hostnames), one per line. They're matched as whole words, case-insensitively, and aliased as `⟦custom_NN⟧`.
 - **Confidence** — every detection carries a confidence score: checksum-validated values (cards, IBANs, NHS numbers…) show 100%; context-anchored matches less. Hover an alias in the Vendetta panel, or open the Dev Inspector (`⌘⇧D`), to see it.
 

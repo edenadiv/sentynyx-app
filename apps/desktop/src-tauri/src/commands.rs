@@ -59,6 +59,16 @@ pub(crate) async fn read_disabled_packs(
         .unwrap_or_default()
 }
 
+/// Column-aware spans for pasted tabular data, with the user's pack toggles
+/// applied exactly like regex spans. Pure of the store — toggles arrive as an
+/// argument because every caller already fetched them.
+pub(crate) fn structured_stage(
+    text: &str,
+    disabled: &std::collections::HashSet<String>,
+) -> Vec<Span> {
+    filter_disabled_packs(crate::detect::structured::structured_spans(text), disabled)
+}
+
 pub(crate) fn filter_disabled_packs(
     spans: Vec<Span>,
     disabled: &std::collections::HashSet<String>,
@@ -113,7 +123,11 @@ pub async fn detect(text: String, state: State<'_, AppState>, conv_id: Option<St
     } else { (HashMap::new(), HashMap::new()) };
     let regex_spans = filter_disabled_packs(
         vendetta::detect(&text, &mut map, &mut counters), &disabled);
-    let merged = crate::detect::merge_spans(regex_spans, custom);
+    let structured = structured_stage(&text, &disabled);
+    let merged = crate::detect::merge_spans(
+        crate::detect::merge_spans(regex_spans, structured),
+        custom,
+    );
     let spans = vendetta::apply_alias_map(&merged, &mut map, &mut counters);
     Ok(DetectResult { spans })
 }
@@ -156,8 +170,9 @@ pub async fn detect_with_ner(
     let custom = crate::detect::custom::custom_spans(&state.store, &text).await;
     let disabled = read_disabled_packs(&state.store).await;
     let regex_spans = filter_disabled_packs(regex_spans, &disabled);
+    let structured = structured_stage(&text, &disabled);
     let merged = crate::detect::merge_spans(
-        crate::detect::merge_spans(regex_spans, custom),
+        crate::detect::merge_spans(crate::detect::merge_spans(regex_spans, structured), custom),
         ner_spans,
     );
     let mut map: crate::vendetta::AliasMap = HashMap::new();
@@ -322,8 +337,12 @@ pub async fn send(
     let custom_spans_count = custom_spans.len();
 
     let t_merge = std::time::Instant::now();
+    let structured_spans_v = structured_stage(&args.text, &disabled_packs);
     let merged_pre_alias = crate::detect::merge_spans(
-        crate::detect::merge_spans(regex_spans, custom_spans),
+        crate::detect::merge_spans(
+            crate::detect::merge_spans(regex_spans, structured_spans_v),
+            custom_spans,
+        ),
         ner_spans,
     );
     let merge_ms = t_merge.elapsed().as_millis() as u64;

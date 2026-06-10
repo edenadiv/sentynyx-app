@@ -127,7 +127,9 @@ async fn main() {
         let t0 = std::time::Instant::now();
         let rx = regex.detect(&p.text).await.unwrap_or_default();
         let nr = ner.detect(&p.text).await.unwrap_or_default();
-        let merged = detect::merge_spans(rx, nr);
+        // Mirror the product merge order: regex > structured > NER.
+        let st = detect::structured::structured_spans(&p.text);
+        let merged = detect::merge_spans(detect::merge_spans(rx, st), nr);
         // Full mode includes the paranoid scan in the steady-state timing.
         // We skip it here in Fast mode to keep the latency budget tight.
         if matches!(mode, EvalMode::Full) {

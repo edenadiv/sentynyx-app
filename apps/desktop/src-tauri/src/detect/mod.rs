@@ -3,6 +3,7 @@ pub mod ner;
 pub mod ner_sidecar;
 pub mod llm;
 pub mod custom;
+pub mod structured;
 
 use async_trait::async_trait;
 use serde::Serialize;
