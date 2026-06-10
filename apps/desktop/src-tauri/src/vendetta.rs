@@ -18,7 +18,7 @@ pub enum Kind {
     // Identity documents
     DOB, PASSPORT, DRIVERS_LICENSE, VIN, MRZ,
     // National / government identifiers (region packs)
-    US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR, IT_CF,
+    US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR, IT_CF, ES_DNI,
     // Medical
     MRN, NPI, DEA, HEALTH_ID, MEDICARE_MBI,
     // Legal
@@ -45,7 +45,7 @@ impl Kind {
             Kind::VIN => "vin", Kind::MRZ => "passport-mrz",
             Kind::US_ITIN => "itin", Kind::CA_SIN => "sin", Kind::UK_NHS => "nhs",
             Kind::UK_NINO => "nino", Kind::AU_TFN => "tfn", Kind::AADHAAR => "aadhaar",
-            Kind::IT_CF => "codice-fiscale",
+            Kind::IT_CF => "codice-fiscale", Kind::ES_DNI => "dni",
             Kind::MRN => "mrn", Kind::NPI => "npi", Kind::DEA => "dea", Kind::HEALTH_ID => "member-id",
             Kind::MEDICARE_MBI => "medicare-mbi",
             Kind::CASE_NO => "case",
@@ -70,7 +70,7 @@ impl Kind {
             Kind::VIN => "VIN", Kind::MRZ => "MRZ",
             Kind::US_ITIN => "US_ITIN", Kind::CA_SIN => "CA_SIN", Kind::UK_NHS => "UK_NHS",
             Kind::UK_NINO => "UK_NINO", Kind::AU_TFN => "AU_TFN", Kind::AADHAAR => "AADHAAR",
-            Kind::IT_CF => "IT_CF",
+            Kind::IT_CF => "IT_CF", Kind::ES_DNI => "ES_DNI",
             Kind::MRN => "MRN", Kind::NPI => "NPI", Kind::DEA => "DEA", Kind::HEALTH_ID => "HEALTH_ID",
             Kind::MEDICARE_MBI => "MEDICARE_MBI",
             Kind::CASE_NO => "CASE_NO",
@@ -108,7 +108,7 @@ pub fn pack_for(kind: &Kind) -> &'static str {
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC | Kind::EIN => "payment",
         Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::VIN | Kind::MRZ => "identity",
         Kind::US_ITIN | Kind::CA_SIN | Kind::UK_NHS | Kind::UK_NINO | Kind::AU_TFN
-        | Kind::AADHAAR | Kind::IT_CF => "national-id",
+        | Kind::AADHAAR | Kind::IT_CF | Kind::ES_DNI => "national-id",
         Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID | Kind::MEDICARE_MBI => "medical",
         Kind::CASE_NO => "legal",
         Kind::CRYPTO_WALLET | Kind::IPV6 | Kind::MAC_ADDRESS | Kind::IP => "network",
@@ -134,7 +134,7 @@ pub fn confidence_for(kind: &Kind) -> f32 {
         // Checksum-validated or cryptographically distinctive → certain.
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC
         | Kind::NPI | Kind::DEA | Kind::CA_SIN | Kind::UK_NHS | Kind::AU_TFN
-        | Kind::AADHAAR | Kind::IT_CF | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
+        | Kind::AADHAAR | Kind::IT_CF | Kind::ES_DNI | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
         | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM | Kind::VIN
         | Kind::MRZ => 1.0,
         // Highly distinctive structural format, no checksum.
@@ -231,6 +231,9 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     // shape alone (6 letters, yy, month letter, dd, area, check) is selective
     // enough to run unanchored; the check character does the rest.
     p(Kind::IT_CF, r"\b[A-Z]{6}\d{2}[ABCDEHLMPRST]\d{2}[A-Z]\d{3}[A-Z]\b"),
+    // Spanish DNI (8 digits + letter) / NIE (X|Y|Z + 7 digits + letter): the
+    // mod-23 check letter does the filtering — 1-in-23 on top of the shape.
+    p(Kind::ES_DNI, r"\b(?:\d{8}|[XYZ]\d{7})[TRWAGMYFPDXBNJZSQVHLCKE]\b"),
     pc(Kind::MRN, r"(?i)\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{5,12})\b"),
     pc(Kind::NPI, r"(?i)\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b"),
     pc(Kind::DEA, r"(?i)\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b"),
@@ -344,6 +347,7 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::AU_TFN => validators::au_tfn(raw),
         Kind::AADHAAR => validators::aadhaar(raw),
         Kind::IT_CF => validators::codice_fiscale(raw),
+        Kind::ES_DNI => validators::es_dni(raw),
         Kind::DOB => validators::date_plausible(raw),
         Kind::SSN => validators::ssn(raw),
         Kind::IP => validators::ipv4_octets(raw),
@@ -678,6 +682,21 @@ mod validators {
             r => char::from_digit(r, 10).unwrap(),
         };
         raw.chars().nth(8) == Some(check)
+    }
+
+    /// Spanish DNI/NIE mod-23 check letter. NIE prefixes substitute
+    /// X→0, Y→1, Z→2 before the modulo.
+    pub fn es_dni(raw: &str) -> bool {
+        const LETTERS: &[u8] = b"TRWAGMYFPDXBNJZSQVHLCKE";
+        let (digits, check) = raw.split_at(raw.len() - 1);
+        let normalized: String = match digits.chars().next() {
+            Some('X') => format!("0{}", &digits[1..]),
+            Some('Y') => format!("1{}", &digits[1..]),
+            Some('Z') => format!("2{}", &digits[1..]),
+            _ => digits.to_string(),
+        };
+        let Ok(n) = normalized.parse::<u64>() else { return false };
+        check.as_bytes()[0] == LETTERS[(n % 23) as usize]
     }
 
     /// Italian Codice Fiscale check character: positions alternate between
@@ -1320,6 +1339,18 @@ mod tests {
     }
 
     #[test]
+    fn spanish_dni_nie_check_letter() {
+        for (text, ok) in [
+            ("dni 12345678Z on file", true),
+            ("nie X1234567L for the visa", true),
+            ("ref 12345678A mismatch", false),
+        ] {
+            let found = run(text).iter().any(|s| matches!(s.kind, Kind::ES_DNI));
+            assert_eq!(found, ok, "{text}");
+        }
+    }
+
+    #[test]
     fn codice_fiscale_check_character() {
         let spans = run("dipendente RSSMRA85T10A562S in anagrafica");
         assert_eq!(spans.len(), 1, "{spans:?}");
@@ -1526,7 +1557,7 @@ mod tests {
             Kind::CREDITCARD, Kind::IBAN, Kind::US_BANK, Kind::SWIFT_BIC, Kind::EIN,
             Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING, Kind::CREDENTIAL,
             Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE, Kind::VIN, Kind::MRZ,
-            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR, Kind::IT_CF,
+            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR, Kind::IT_CF, Kind::ES_DNI,
             Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::MEDICARE_MBI, Kind::CASE_NO,
             Kind::CRYPTO_WALLET, Kind::IPV6, Kind::MAC_ADDRESS, Kind::CUSTOM,
             Kind::PERSON_NER, Kind::ORG_NER, Kind::CODENAME_NER, Kind::LOCATION_NER,

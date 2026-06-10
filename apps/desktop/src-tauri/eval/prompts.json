@@ -1914,6 +1914,25 @@
    "id": "cf002",
    "text": "codice errato RSSMRA85T10A562T da scartare",
    "expected": []
+  },
+  {
+   "id": "es001",
+   "text": "el dni 12345678Z y el nie X1234567L del solicitante",
+   "expected": [
+    {
+     "kind": "ES_DNI",
+     "raw": "12345678Z"
+    },
+    {
+     "kind": "ES_DNI",
+     "raw": "X1234567L"
+    }
+   ]
+  },
+  {
+   "id": "es002",
+   "text": "tracking 12345678A no es un dni",
+   "expected": []
   }
  ]
 }
