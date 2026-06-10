@@ -40,6 +40,11 @@ on an **open-core** model (see `OPEN-CORE.md`).
   construction, zero new dependencies (hand-rolled HTTP/1.1 on tokio),
   `ollama:*` models stay zero-egress. The desktop app stops being the only
   place the perimeter exists.
+- **Precision hardening**: SSNs are validated against SSA structural rules
+  (area 000/666/9xx, group 00, serial 0000 never issued — test data stops
+  blocking sends); IBANs must match their country's exact ISO 13616 length;
+  the API-key catalog gains Hugging Face, npm, PyPI, SendGrid, Grafana,
+  DigitalOcean, Shopify, Figma, Linear, and Terraform prefixes.
 - **Passport MRZ detection**: ICAO 9303 TD3 machine-readable lines (the
   44-char line-2 from a passport scan/OCR) are caught unanchored and
   validated against all four check digits — document number, birth date,

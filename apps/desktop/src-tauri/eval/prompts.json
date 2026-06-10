@@ -1860,6 +1860,31 @@
    "id": "mrz002",
    "text": "corrupt scan L898903C36UTO7408122F1204159ZE184226B<<<<<10 retry needed",
    "expected": []
+  },
+  {
+   "id": "hd001",
+   "text": "test record uses ssn 666-12-3456 as the placeholder",
+   "expected": []
+  },
+  {
+   "id": "hd002",
+   "text": "rotate the huggingface token hf_AbCdEfGh123456789 before the demo",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "hf_AbCdEfGh123456789"
+    }
+   ]
+  },
+  {
+   "id": "hd003",
+   "text": "sendgrid creds SG.abcdefghij1234567.klmnopqrst7654321 in the env",
+   "expected": [
+    {
+     "kind": "APIKEY",
+     "raw": "SG.abcdefghij1234567.klmnopqrst7654321"
+    }
+   ]
   }
  ]
 }

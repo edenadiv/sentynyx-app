@@ -240,7 +240,7 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     p(Kind::PHONE,   r"\b(?:\+?\d{1,3}[\s.\-]?)?(?:\(?\d{3}\)?[\s.\-]?)\d{3}[\s.\-]?\d{4}\b"),
     p(Kind::SSN,     r"\b\d{3}-\d{2}-\d{4}\b"),
     p(Kind::IP,      r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
-    p(Kind::APIKEY,  r"\b(?:sk-|sk_live_|sk_test_|pk_|rk_live_|AKIA|ASIA|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[baprs]-|xapp-)[A-Za-z0-9_\-]{10,}\b|\bAIza[0-9A-Za-z_\-]{35}\b|\bya29\.[0-9A-Za-z_\-\.]{20,}\b"),
+    p(Kind::APIKEY,  r"\b(?:sk-|sk_live_|sk_test_|pk_|rk_live_|AKIA|ASIA|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[baprs]-|xapp-|hf_|npm_|pypi-|glsa_|dop_v1_|shpat_|shpss_|figd_|lin_api_|tfp_)[A-Za-z0-9_\-]{10,}\b|\bAIza[0-9A-Za-z_\-]{35}\b|\bya29\.[0-9A-Za-z_\-\.]{20,}\b|\bSG\.[A-Za-z0-9_\-]{16,}\.[A-Za-z0-9_\-]{16,}\b"),
     p(Kind::URL,     r"\bhttps?://[^\s)]+"),
     p(Kind::ADDRESS, r"\b\d{1,5}\s+[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3}\s+(?:Street|St|Avenue|Ave|Road|Rd|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Way)\b"),
     p(Kind::MONEY,   r"\$\s?\d{1,3}(?:,\d{3})+(?:\.\d+)?|\$\s?\d{4,}(?:\.\d+)?"),
@@ -332,6 +332,7 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::AU_TFN => validators::au_tfn(raw),
         Kind::AADHAAR => validators::aadhaar(raw),
         Kind::DOB => validators::date_plausible(raw),
+        Kind::SSN => validators::ssn(raw),
         Kind::IP => validators::ipv4_octets(raw),
         Kind::IPV6 => raw.parse::<std::net::Ipv6Addr>().is_ok(),
         Kind::CREDENTIAL => validators::credential_value(raw),
@@ -394,11 +395,37 @@ mod validators {
         "TL","TN","TR","UA","VA","VG","XK",
     ];
 
+    /// Exact IBAN length per country (ISO 13616 registry). A wrong-length
+    /// candidate with a coincidentally valid mod-97 is still not an IBAN.
+    fn iban_len(cc: &str) -> Option<usize> {
+        Some(match cc {
+            "NO" => 15, "BE" => 16,
+            "DK" | "FI" | "FO" | "GL" | "NL" | "FK" | "SD" => 18,
+            "MK" | "SI" => 19,
+            "AT" | "BA" | "EE" | "KZ" | "LT" | "LU" | "MN" | "XK" => 20,
+            "CH" | "CR" | "HR" | "LI" | "LV" => 21,
+            "BG" | "BH" | "DE" | "GB" | "GE" | "IE" | "ME" | "RS" | "VA" => 22,
+            "AE" | "GI" | "IL" | "IQ" | "TL" | "OM" | "SO" => 23,
+            "AD" | "CZ" | "ES" | "MD" | "PK" | "RO" | "SA" | "SE" | "SK" | "VG" | "TN" => 24,
+            "EG" | "PT" | "LY" | "ST" => 25,
+            "IS" | "TR" => 26,
+            "FR" | "GR" | "IT" | "MC" | "MR" | "SM" | "BI" | "DJ" => 27,
+            "AL" | "AZ" | "BY" | "CY" | "DO" | "GT" | "HU" | "LB" | "PL" | "SV" | "NI" => 28,
+            "BR" | "PS" | "QA" | "UA" => 29,
+            "JO" | "KW" | "MU" => 30,
+            "MT" | "SC" => 31, "LC" => 32, "RU" => 33,
+            _ => return None,
+        })
+    }
+
     pub fn iban(raw: &str) -> bool {
         let s: String = raw.chars().filter(|c| !c.is_whitespace()).collect();
         if s.len() < 15 || s.len() > 34 { return false; }
         let cc = &s[..2];
         if !IBAN_COUNTRIES.contains(&cc) { return false; }
+        if let Some(expected) = iban_len(cc) {
+            if s.len() != expected { return false; }
+        }
         // Rotate first 4 chars to the end, map A=10..Z=35, streaming mod 97.
         let rotated = format!("{}{}", &s[4..], &s[..4]);
         let mut acc: u32 = 0;
@@ -638,6 +665,18 @@ mod validators {
             r => char::from_digit(r, 10).unwrap(),
         };
         raw.chars().nth(8) == Some(check)
+    }
+
+    /// SSA structural rules: area 000/666/9xx, group 00, and serial 0000
+    /// are never issued. Rejecting them keeps obvious test/sample numbers
+    /// (000-12-3456) from blocking sends while every real SSN still does.
+    pub fn ssn(raw: &str) -> bool {
+        let d = digits_of(raw);
+        if d.len() != 9 { return false; }
+        let area = d[0] * 100 + d[1] * 10 + d[2];
+        let group = d[3] * 10 + d[4];
+        let serial = d[5] * 1000 + d[6] * 100 + d[7] * 10 + d[8];
+        area != 0 && area != 666 && area < 900 && group != 0 && serial != 0
     }
 
     /// ICAO 9303 TD3 (passport) MRZ line 2: check digits with weights 7,3,1
@@ -1239,6 +1278,40 @@ mod tests {
         // No credentials in the URI → not a secret; URL pattern may still alias.
         let spans = run("postgres://db.internal:5432/main is the host");
         assert!(spans.iter().all(|s| !matches!(s.kind, Kind::CONNECTION_STRING)));
+    }
+
+    #[test]
+    fn ssn_structural_rules() {
+        // Real-shaped SSN blocks; SSA-impossible shapes pass through.
+        let spans = run("my ssn is 123-45-6789");
+        assert_eq!(spans.len(), 1);
+        assert!(matches!(spans[0].kind, Kind::SSN));
+        for fake in ["000-12-3456", "666-12-3456", "900-12-3456", "123-00-4567", "123-45-0000"] {
+            assert!(run(&format!("ssn {fake} noted")).iter().all(|s| !matches!(s.kind, Kind::SSN)), "{fake}");
+        }
+    }
+
+    #[test]
+    fn iban_exact_country_lengths() {
+        // Valid German IBAN (22 chars) detected…
+        let spans = run("wire to DE89 3704 0044 0532 0130 00 today");
+        assert!(spans.iter().any(|s| matches!(s.kind, Kind::IBAN)));
+        // …but a German prefix at French length never validates, even if a
+        // mod-97-passing string of that shape existed; quick negative via
+        // truncation (also breaks mod-97, both gates agree).
+        assert!(run("ref DE89 3704 0044 0532 0130 fail").iter().all(|s| !matches!(s.kind, Kind::IBAN)));
+    }
+
+    #[test]
+    fn expanded_secret_prefixes_2() {
+        for key in [
+            "hf_AbCdEfGh123456789", "npm_a1b2c3d4e5f6g7h8", "pypi-AgEIcHlwaS5vcmc",
+            "dop_v1_abcdef0123456789", "shpat_0123456789abcdef", "figd_abc123def456ghi",
+            "SG.abcdefghij1234567.klmnopqrst7654321",
+        ] {
+            let spans = run(&format!("rotate {key} now"));
+            assert!(spans.iter().any(|s| matches!(s.kind, Kind::APIKEY)), "{key}: {spans:?}");
+        }
     }
 
     #[test]

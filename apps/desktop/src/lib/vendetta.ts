@@ -63,7 +63,7 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "PHONE",   re: /\b(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{3}\)?[\s.-]?)\d{3}[\s.-]?\d{4}\b/g },
   { kind: "SSN",     re: /\b\d{3}-\d{2}-\d{4}\b/g },
   { kind: "IP",      re: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
-  { kind: "APIKEY",  re: /\b(?:sk-|sk_live_|sk_test_|pk_|rk_live_|AKIA|ASIA|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[baprs]-|xapp-)[A-Za-z0-9_-]{10,}\b|\bAIza[0-9A-Za-z_-]{35}\b|\bya29\.[0-9A-Za-z_.-]{20,}\b/g },
+  { kind: "APIKEY",  re: /\b(?:sk-|sk_live_|sk_test_|pk_|rk_live_|AKIA|ASIA|ghp_|gho_|ghu_|ghs_|ghr_|github_pat_|glpat-|xox[baprs]-|xapp-|hf_|npm_|pypi-|glsa_|dop_v1_|shpat_|shpss_|figd_|lin_api_|tfp_)[A-Za-z0-9_-]{10,}\b|\bAIza[0-9A-Za-z_-]{35}\b|\bya29\.[0-9A-Za-z_.-]{20,}\b|\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b/g },
   { kind: "URL",     re: /\bhttps?:\/\/[^\s)]+/g },
   { kind: "ADDRESS", re: /\b\d{1,5}\s+[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,3}\s+(?:Street|St|Avenue|Ave|Road|Rd|Blvd|Lane|Ln|Drive|Dr|Court|Ct|Way)\b/g },
   { kind: "MONEY",   re: /\$\s?\d{1,3}(?:,\d{3})+(?:\.\d+)?|\$\s?\d{4,}(?:\.\d+)?/g },
@@ -180,10 +180,25 @@ const IBAN_COUNTRIES = new Set([
   "TL","TN","TR","UA","VA","VG","XK",
 ]);
 
+const IBAN_LEN: Record<string, number> = {
+  NO:15, BE:16, DK:18, FI:18, FO:18, GL:18, NL:18, FK:18, SD:18, MK:19, SI:19,
+  AT:20, BA:20, EE:20, KZ:20, LT:20, LU:20, MN:20, XK:20,
+  CH:21, CR:21, HR:21, LI:21, LV:21,
+  BG:22, BH:22, DE:22, GB:22, GE:22, IE:22, ME:22, RS:22, VA:22,
+  AE:23, GI:23, IL:23, IQ:23, TL:23, OM:23, SO:23,
+  AD:24, CZ:24, ES:24, MD:24, PK:24, RO:24, SA:24, SE:24, SK:24, VG:24, TN:24,
+  EG:25, PT:25, LY:25, ST:25, IS:26, TR:26,
+  FR:27, GR:27, IT:27, MC:27, MR:27, SM:27, BI:27, DJ:27,
+  AL:28, AZ:28, BY:28, CY:28, DO:28, GT:28, HU:28, LB:28, PL:28, SV:28, NI:28,
+  BR:29, PS:29, QA:29, UA:29, JO:30, KW:30, MU:30, MT:31, SC:31, LC:32, RU:33,
+};
+
 function iban(raw: string): boolean {
   const s = raw.replace(/\s+/g, "");
   if (s.length < 15 || s.length > 34) return false;
   if (!IBAN_COUNTRIES.has(s.slice(0, 2))) return false;
+  const expected = IBAN_LEN[s.slice(0, 2)];
+  if (expected !== undefined && s.length !== expected) return false;
   const rotated = s.slice(4) + s.slice(0, 4);
   let acc = 0;
   for (const ch of rotated) {
@@ -435,6 +450,16 @@ function vin(raw: string): boolean {
   return raw[8] === (r === 10 ? "X" : String(r));
 }
 
+/** SSA structural rules — mirror of validators::ssn. */
+function ssnStructure(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 9) return false;
+  const area = d[0] * 100 + d[1] * 10 + d[2];
+  const group = d[3] * 10 + d[4];
+  const serial = d[5] * 1000 + d[6] * 100 + d[7] * 10 + d[8];
+  return area !== 0 && area !== 666 && area < 900 && group !== 0 && serial !== 0;
+}
+
 /** ICAO 9303 TD3 MRZ line-2 check digits — mirror of validators::mrz_td3. */
 function mrzTd3(raw: string): boolean {
   if (raw.length !== 44) return false;
@@ -581,6 +606,7 @@ export function validate(kind: Kind, raw: string): boolean {
     case "AU_TFN": return auTfn(raw);
     case "AADHAAR": return aadhaar(raw);
     case "DOB": return datePlausible(raw);
+    case "SSN": return ssnStructure(raw);
     case "IP": return ipv4Octets(raw);
     case "IPV6": return ipv6Parses(raw);
     case "CRYPTO_WALLET": return cryptoWallet(raw);
