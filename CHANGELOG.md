@@ -40,6 +40,9 @@ on an **open-core** model (see `OPEN-CORE.md`).
   construction, zero new dependencies (hand-rolled HTTP/1.1 on tokio),
   `ollama:*` models stay zero-egress. The desktop app stops being the only
   place the perimeter exists.
+- **Swedish personnummer + Dutch BSN**: personnummer unanchored
+  (YYMMDD-XXXX shape + month/day plausibility + Luhn); BSN anchored with
+  the elfproef. 51 patterns, 12 national-ID schemes.
 - **Polish PESEL**: anchored (`pesel:`) 11-digit IDs validated by the
   weighted mod-10 check digit. 49 patterns.
 - **Brazilian CPF**: dotted form unanchored + `cpf:`-anchored bare form,

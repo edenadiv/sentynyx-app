@@ -1963,6 +1963,31 @@
    "id": "pl002",
    "text": "pesel 44051401358 — błędna cyfra kontrolna",
    "expected": []
+  },
+  {
+   "id": "se001",
+   "text": "anställd 811218-9876 börjar på måndag",
+   "expected": [
+    {
+     "kind": "SE_PNR",
+     "raw": "811218-9876"
+    }
+   ]
+  },
+  {
+   "id": "nl001",
+   "text": "de medewerker met bsn: 111222333 is actief",
+   "expected": [
+    {
+     "kind": "NL_BSN",
+     "raw": "111222333"
+    }
+   ]
+  },
+  {
+   "id": "nl002",
+   "text": "bsn 111222334 faalt de elfproef",
+   "expected": []
   }
  ]
 }

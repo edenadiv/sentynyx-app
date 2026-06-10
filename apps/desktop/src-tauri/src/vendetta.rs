@@ -19,6 +19,7 @@ pub enum Kind {
     DOB, PASSPORT, DRIVERS_LICENSE, VIN, MRZ,
     // National / government identifiers (region packs)
     US_ITIN, CA_SIN, UK_NHS, UK_NINO, AU_TFN, AADHAAR, IT_CF, ES_DNI, BR_CPF, PL_PESEL,
+    SE_PNR, NL_BSN,
     // Medical
     MRN, NPI, DEA, HEALTH_ID, MEDICARE_MBI,
     // Legal
@@ -46,7 +47,7 @@ impl Kind {
             Kind::US_ITIN => "itin", Kind::CA_SIN => "sin", Kind::UK_NHS => "nhs",
             Kind::UK_NINO => "nino", Kind::AU_TFN => "tfn", Kind::AADHAAR => "aadhaar",
             Kind::IT_CF => "codice-fiscale", Kind::ES_DNI => "dni", Kind::BR_CPF => "cpf",
-            Kind::PL_PESEL => "pesel",
+            Kind::PL_PESEL => "pesel", Kind::SE_PNR => "personnummer", Kind::NL_BSN => "bsn",
             Kind::MRN => "mrn", Kind::NPI => "npi", Kind::DEA => "dea", Kind::HEALTH_ID => "member-id",
             Kind::MEDICARE_MBI => "medicare-mbi",
             Kind::CASE_NO => "case",
@@ -72,7 +73,7 @@ impl Kind {
             Kind::US_ITIN => "US_ITIN", Kind::CA_SIN => "CA_SIN", Kind::UK_NHS => "UK_NHS",
             Kind::UK_NINO => "UK_NINO", Kind::AU_TFN => "AU_TFN", Kind::AADHAAR => "AADHAAR",
             Kind::IT_CF => "IT_CF", Kind::ES_DNI => "ES_DNI", Kind::BR_CPF => "BR_CPF",
-            Kind::PL_PESEL => "PL_PESEL",
+            Kind::PL_PESEL => "PL_PESEL", Kind::SE_PNR => "SE_PNR", Kind::NL_BSN => "NL_BSN",
             Kind::MRN => "MRN", Kind::NPI => "NPI", Kind::DEA => "DEA", Kind::HEALTH_ID => "HEALTH_ID",
             Kind::MEDICARE_MBI => "MEDICARE_MBI",
             Kind::CASE_NO => "CASE_NO",
@@ -110,7 +111,8 @@ pub fn pack_for(kind: &Kind) -> &'static str {
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC | Kind::EIN => "payment",
         Kind::DOB | Kind::PASSPORT | Kind::DRIVERS_LICENSE | Kind::VIN | Kind::MRZ => "identity",
         Kind::US_ITIN | Kind::CA_SIN | Kind::UK_NHS | Kind::UK_NINO | Kind::AU_TFN
-        | Kind::AADHAAR | Kind::IT_CF | Kind::ES_DNI | Kind::BR_CPF | Kind::PL_PESEL => "national-id",
+        | Kind::AADHAAR | Kind::IT_CF | Kind::ES_DNI | Kind::BR_CPF | Kind::PL_PESEL
+        | Kind::SE_PNR | Kind::NL_BSN => "national-id",
         Kind::MRN | Kind::NPI | Kind::DEA | Kind::HEALTH_ID | Kind::MEDICARE_MBI => "medical",
         Kind::CASE_NO => "legal",
         Kind::CRYPTO_WALLET | Kind::IPV6 | Kind::MAC_ADDRESS | Kind::IP => "network",
@@ -136,7 +138,8 @@ pub fn confidence_for(kind: &Kind) -> f32 {
         // Checksum-validated or cryptographically distinctive → certain.
         Kind::CREDITCARD | Kind::IBAN | Kind::US_BANK | Kind::SWIFT_BIC
         | Kind::NPI | Kind::DEA | Kind::CA_SIN | Kind::UK_NHS | Kind::AU_TFN
-        | Kind::AADHAAR | Kind::IT_CF | Kind::ES_DNI | Kind::BR_CPF | Kind::PL_PESEL | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
+        | Kind::AADHAAR | Kind::IT_CF | Kind::ES_DNI | Kind::BR_CPF | Kind::PL_PESEL
+        | Kind::SE_PNR | Kind::NL_BSN | Kind::SSN | Kind::IP | Kind::IPV6 | Kind::CRYPTO_WALLET
         | Kind::PRIVATE_KEY | Kind::CONNECTION_STRING | Kind::CUSTOM | Kind::VIN
         | Kind::MRZ => 1.0,
         // Highly distinctive structural format, no checksum.
@@ -244,6 +247,12 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| vec![
     // Polish PESEL: anchored only — bare 11-digit runs collide with
     // international phone numbers; the anchor + weighted mod-10 decide.
     pc(Kind::PL_PESEL, r"(?i)\bpesel(?:\s*(?:no|number|#))?\.?[:\s]+(\d{11})\b"),
+    // Swedish personnummer: YYMMDD-XXXX shape is distinctive enough to run
+    // unanchored; month/day plausibility + Luhn in the validator.
+    p(Kind::SE_PNR, r"\b\d{6}[-+]\d{4}\b"),
+    // Dutch BSN: anchored — bare 9-digit runs collide with SIN/TFN shapes;
+    // the 11-test (elfproef) decides.
+    pc(Kind::NL_BSN, r"(?i)\bbsn(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b"),
     pc(Kind::MRN, r"(?i)\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9\-]{5,12})\b"),
     pc(Kind::NPI, r"(?i)\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b"),
     pc(Kind::DEA, r"(?i)\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b"),
@@ -360,6 +369,8 @@ pub fn validate(kind: &Kind, raw: &str) -> bool {
         Kind::ES_DNI => validators::es_dni(raw),
         Kind::BR_CPF => validators::br_cpf(raw),
         Kind::PL_PESEL => validators::pl_pesel(raw),
+        Kind::SE_PNR => validators::se_pnr(raw),
+        Kind::NL_BSN => validators::nl_bsn(raw),
         Kind::DOB => validators::date_plausible(raw),
         Kind::SSN => validators::ssn(raw),
         Kind::IP => validators::ipv4_octets(raw),
@@ -694,6 +705,24 @@ mod validators {
             r => char::from_digit(r, 10).unwrap(),
         };
         raw.chars().nth(8) == Some(check)
+    }
+
+    /// Swedish personnummer: YYMMDD-XXXX with month/day plausibility and
+    /// Luhn over the 10 digits.
+    pub fn se_pnr(raw: &str) -> bool {
+        let d = digits_of(raw);
+        if d.len() != 10 { return false; }
+        let (mm, dd) = (d[2] * 10 + d[3], d[4] * 10 + d[5]);
+        (1..=12).contains(&mm) && (1..=31).contains(&dd) && luhn(&d)
+    }
+
+    /// Dutch BSN "elfproef": 9·d1 + 8·d2 + … + 2·d8 − d9 ≡ 0 (mod 11),
+    /// all-zero rejected.
+    pub fn nl_bsn(raw: &str) -> bool {
+        let d = digits_of(raw);
+        if d.len() != 9 || d.iter().all(|&x| x == 0) { return false; }
+        let total: i32 = d[..8].iter().enumerate().map(|(i, &x)| x as i32 * (9 - i as i32)).sum::<i32>() - d[8] as i32;
+        total % 11 == 0
     }
 
     /// Polish PESEL: weighted mod-10 over the first 10 digits
@@ -1375,6 +1404,17 @@ mod tests {
     }
 
     #[test]
+    fn swedish_personnummer_and_dutch_bsn() {
+        let spans = run("anställd 811218-9876 registrerad");
+        assert!(spans.iter().any(|s| matches!(s.kind, Kind::SE_PNR)), "{spans:?}");
+        assert!(run("ref 811218-9875 fel").iter().all(|s| !matches!(s.kind, Kind::SE_PNR)));
+        assert!(run("datum 811318-9876 ogiltig månad").iter().all(|s| !matches!(s.kind, Kind::SE_PNR)));
+        let spans = run("medewerker bsn: 111222333 geregistreerd");
+        assert!(spans.iter().any(|s| matches!(s.kind, Kind::NL_BSN)), "{spans:?}");
+        assert!(run("bsn 111222334 faalt elfproef").iter().all(|s| !matches!(s.kind, Kind::NL_BSN)));
+    }
+
+    #[test]
     fn polish_pesel_check_digit() {
         let spans = run("pracownik PESEL: 44051401359 w systemie");
         assert!(spans.iter().any(|s| matches!(s.kind, Kind::PL_PESEL)), "{spans:?}");
@@ -1612,7 +1652,7 @@ mod tests {
             Kind::CREDITCARD, Kind::IBAN, Kind::US_BANK, Kind::SWIFT_BIC, Kind::EIN,
             Kind::JWT, Kind::PRIVATE_KEY, Kind::CONNECTION_STRING, Kind::CREDENTIAL,
             Kind::DOB, Kind::PASSPORT, Kind::DRIVERS_LICENSE, Kind::VIN, Kind::MRZ,
-            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR, Kind::IT_CF, Kind::ES_DNI, Kind::BR_CPF, Kind::PL_PESEL,
+            Kind::US_ITIN, Kind::CA_SIN, Kind::UK_NHS, Kind::UK_NINO, Kind::AU_TFN, Kind::AADHAAR, Kind::IT_CF, Kind::ES_DNI, Kind::BR_CPF, Kind::PL_PESEL, Kind::SE_PNR, Kind::NL_BSN,
             Kind::MRN, Kind::NPI, Kind::DEA, Kind::HEALTH_ID, Kind::MEDICARE_MBI, Kind::CASE_NO,
             Kind::CRYPTO_WALLET, Kind::IPV6, Kind::MAC_ADDRESS, Kind::CUSTOM,
             Kind::PERSON_NER, Kind::ORG_NER, Kind::CODENAME_NER, Kind::LOCATION_NER,

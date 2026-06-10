@@ -52,6 +52,8 @@ const PATTERNS: { kind: Kind; re: RegExp; cap?: boolean }[] = [
   { kind: "BR_CPF", re: /\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g },
   { kind: "BR_CPF", re: /\bcpf(?:\s*(?:no|number|nº|#))?\.?[:\s]+(\d{3}\.?\d{3}\.?\d{3}-?\d{2})\b/gi, cap: true },
   { kind: "PL_PESEL", re: /\bpesel(?:\s*(?:no|number|#))?\.?[:\s]+(\d{11})\b/gi, cap: true },
+  { kind: "SE_PNR", re: /\b\d{6}[-+]\d{4}\b/g },
+  { kind: "NL_BSN", re: /\bbsn(?:\s*(?:no|number|#))?\.?[:\s]+(\d{9})\b/gi, cap: true },
   { kind: "MRN", re: /\b(?:mrn|medical record)(?:\s*(?:no|number|#))?\.?[:\s]+([A-Z0-9-]{5,12})\b/gi, cap: true },
   { kind: "NPI", re: /\bnpi(?:\s*(?:no|number|#))?\.?[:\s]+(\d{10})\b/gi, cap: true },
   { kind: "DEA", re: /\bdea(?:\s*(?:no|number|reg(?:istration)?|#))?\.?[:\s]+([A-Za-z]{2}\d{7})\b/gi, cap: true },
@@ -88,7 +90,7 @@ export const LABELS: Record<Kind, string> = {
   DOB: "dob", PASSPORT: "passport", DRIVERS_LICENSE: "license", VIN: "vin",
   MRZ: "passport-mrz",
   US_ITIN: "itin", CA_SIN: "sin", UK_NHS: "nhs", UK_NINO: "nino",
-  AU_TFN: "tfn", AADHAAR: "aadhaar", IT_CF: "codice-fiscale", ES_DNI: "dni", BR_CPF: "cpf", PL_PESEL: "pesel",
+  AU_TFN: "tfn", AADHAAR: "aadhaar", IT_CF: "codice-fiscale", ES_DNI: "dni", BR_CPF: "cpf", PL_PESEL: "pesel", SE_PNR: "personnummer", NL_BSN: "bsn",
   MRN: "mrn", NPI: "npi", DEA: "dea", HEALTH_ID: "member-id",
   MEDICARE_MBI: "medicare-mbi",
   CASE_NO: "case",
@@ -474,6 +476,23 @@ function codiceFiscale(raw: string): boolean {
   return raw[15] === String.fromCharCode(65 + (total % 26));
 }
 
+/** Swedish personnummer (month/day + Luhn) — mirror of validators::se_pnr. */
+function sePnr(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 10) return false;
+  const mm = d[2] * 10 + d[3], dd = d[4] * 10 + d[5];
+  return mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && luhn(d);
+}
+
+/** Dutch BSN elfproef — mirror of validators::nl_bsn. */
+function nlBsn(raw: string): boolean {
+  const d = digitsOf(raw);
+  if (d.length !== 9 || d.every(x => x === 0)) return false;
+  let total = -d[8];
+  for (let i = 0; i < 8; i++) total += d[i] * (9 - i);
+  return total % 11 === 0;
+}
+
 /** Polish PESEL weighted mod-10 — mirror of validators::pl_pesel. */
 function plPesel(raw: string): boolean {
   const d = digitsOf(raw);
@@ -596,7 +615,7 @@ function credentialValue(raw: string): boolean {
 export const TOGGLEABLE_PACKS: { id: string; name: string; hint: string }[] = [
   { id: "payment", name: "Payment & banking", hint: "cards · IBAN · routing · SWIFT · EIN" },
   { id: "identity", name: "Identity documents", hint: "DOB · passport + MRZ · driver's license · VIN" },
-  { id: "national-id", name: "National IDs", hint: "ITIN · SIN · NHS · NINO · TFN · Aadhaar · CF · DNI · CPF · PESEL" },
+  { id: "national-id", name: "National IDs", hint: "12 schemes: ITIN · SIN · NHS · TFN · Aadhaar · CF · DNI · CPF · PESEL · personnummer · BSN…" },
   { id: "medical", name: "Medical", hint: "MRN · NPI · DEA · member IDs · Medicare MBI" },
   { id: "legal", name: "Legal", hint: "case & docket numbers" },
   { id: "network", name: "Network & crypto", hint: "IPs · MAC · wallets" },
@@ -609,7 +628,7 @@ export function packFor(kind: Kind): string {
     case "DOB": case "PASSPORT": case "DRIVERS_LICENSE": case "VIN": case "MRZ":
       return "identity";
     case "US_ITIN": case "CA_SIN": case "UK_NHS": case "UK_NINO": case "AU_TFN": case "AADHAAR":
-    case "IT_CF": case "ES_DNI": case "BR_CPF": case "PL_PESEL":
+    case "IT_CF": case "ES_DNI": case "BR_CPF": case "PL_PESEL": case "SE_PNR": case "NL_BSN":
       return "national-id";
     case "MRN": case "NPI": case "DEA": case "HEALTH_ID": case "MEDICARE_MBI":
       return "medical";
@@ -637,7 +656,8 @@ export function confidenceFor(kind: Kind): number {
   switch (kind) {
     case "CREDITCARD": case "IBAN": case "US_BANK": case "SWIFT_BIC":
     case "NPI": case "DEA": case "CA_SIN": case "UK_NHS": case "AU_TFN":
-    case "AADHAAR": case "IT_CF": case "ES_DNI": case "BR_CPF": case "PL_PESEL": case "SSN": case "IP": case "IPV6": case "CRYPTO_WALLET":
+    case "AADHAAR": case "IT_CF": case "ES_DNI": case "BR_CPF": case "PL_PESEL":
+    case "SE_PNR": case "NL_BSN": case "SSN": case "IP": case "IPV6": case "CRYPTO_WALLET":
     case "PRIVATE_KEY": case "CONNECTION_STRING": case "CUSTOM": case "VIN":
     case "MRZ":
       return 1.0;
@@ -671,6 +691,8 @@ export function validate(kind: Kind, raw: string): boolean {
     case "ES_DNI": return esDni(raw);
     case "BR_CPF": return brCpf(raw);
     case "PL_PESEL": return plPesel(raw);
+    case "SE_PNR": return sePnr(raw);
+    case "NL_BSN": return nlBsn(raw);
     case "DOB": return datePlausible(raw);
     case "SSN": return ssnStructure(raw);
     case "IP": return ipv4Octets(raw);

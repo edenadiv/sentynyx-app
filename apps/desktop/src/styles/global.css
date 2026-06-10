@@ -140,7 +140,7 @@ button { font-family:inherit; color:inherit; }
 /* Identity documents + national IDs — violet */
 .vend-hit.vend-DOB, .vend-hit.vend-PASSPORT, .vend-hit.vend-DRIVERS_LICENSE,
 .vend-hit.vend-VIN, .vend-hit.vend-MRZ, .vend-hit.vend-US_ITIN, .vend-hit.vend-CA_SIN, .vend-hit.vend-UK_NHS,
-.vend-hit.vend-UK_NINO, .vend-hit.vend-AU_TFN, .vend-hit.vend-AADHAAR, .vend-hit.vend-IT_CF, .vend-hit.vend-ES_DNI, .vend-hit.vend-BR_CPF, .vend-hit.vend-PL_PESEL {
+.vend-hit.vend-UK_NINO, .vend-hit.vend-AU_TFN, .vend-hit.vend-AADHAAR, .vend-hit.vend-IT_CF, .vend-hit.vend-ES_DNI, .vend-hit.vend-BR_CPF, .vend-hit.vend-PL_PESEL, .vend-hit.vend-SE_PNR, .vend-hit.vend-NL_BSN {
   background: rgba(180, 140, 255, 0.20); color: #b48cff;
   border-bottom-color: rgba(180, 140, 255, 0.6);
   box-shadow: 0 0 6px rgba(180, 140, 255, 0.25);
@@ -148,7 +148,7 @@ button { font-family:inherit; color:inherit; }
 }
 .vend-hit.vend-DOB::before, .vend-hit.vend-PASSPORT::before, .vend-hit.vend-DRIVERS_LICENSE::before,
 .vend-hit.vend-VIN::before, .vend-hit.vend-MRZ::before, .vend-hit.vend-US_ITIN::before, .vend-hit.vend-CA_SIN::before, .vend-hit.vend-UK_NHS::before,
-.vend-hit.vend-UK_NINO::before, .vend-hit.vend-AU_TFN::before, .vend-hit.vend-AADHAAR::before, .vend-hit.vend-IT_CF::before, .vend-hit.vend-ES_DNI::before, .vend-hit.vend-BR_CPF::before, .vend-hit.vend-PL_PESEL::before {
+.vend-hit.vend-UK_NINO::before, .vend-hit.vend-AU_TFN::before, .vend-hit.vend-AADHAAR::before, .vend-hit.vend-IT_CF::before, .vend-hit.vend-ES_DNI::before, .vend-hit.vend-BR_CPF::before, .vend-hit.vend-PL_PESEL::before, .vend-hit.vend-SE_PNR::before, .vend-hit.vend-NL_BSN::before {
   background: linear-gradient(90deg, transparent, rgba(180, 140, 255, 0.4), transparent);
 }
 
