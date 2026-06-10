@@ -1948,6 +1948,21 @@
    "id": "br002",
    "text": "номер 111.444.777-36 нет — invalid check digits",
    "expected": []
+  },
+  {
+   "id": "pl001",
+   "text": "pracownik pesel: 44051401359 zatrudniony",
+   "expected": [
+    {
+     "kind": "PL_PESEL",
+     "raw": "44051401359"
+    }
+   ]
+  },
+  {
+   "id": "pl002",
+   "text": "pesel 44051401358 — błędna cyfra kontrolna",
+   "expected": []
   }
  ]
 }

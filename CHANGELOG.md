@@ -40,6 +40,8 @@ on an **open-core** model (see `OPEN-CORE.md`).
   construction, zero new dependencies (hand-rolled HTTP/1.1 on tokio),
   `ollama:*` models stay zero-egress. The desktop app stops being the only
   place the perimeter exists.
+- **Polish PESEL**: anchored (`pesel:`) 11-digit IDs validated by the
+  weighted mod-10 check digit. 49 patterns.
 - **Brazilian CPF**: dotted form unanchored + `cpf:`-anchored bare form,
   both validated by the two mod-11 check digits with repdigit rejection.
   48 patterns.

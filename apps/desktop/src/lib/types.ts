@@ -8,7 +8,7 @@ export type Kind =
   // Identity documents
   | "DOB" | "PASSPORT" | "DRIVERS_LICENSE" | "VIN" | "MRZ"
   // National / government identifiers
-  | "US_ITIN" | "CA_SIN" | "UK_NHS" | "UK_NINO" | "AU_TFN" | "AADHAAR" | "IT_CF" | "ES_DNI" | "BR_CPF"
+  | "US_ITIN" | "CA_SIN" | "UK_NHS" | "UK_NINO" | "AU_TFN" | "AADHAAR" | "IT_CF" | "ES_DNI" | "BR_CPF" | "PL_PESEL"
   // Medical
   | "MRN" | "NPI" | "DEA" | "HEALTH_ID" | "MEDICARE_MBI"
   // Legal
