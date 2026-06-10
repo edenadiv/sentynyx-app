@@ -79,7 +79,11 @@ export function ConsensusArena({ prompt, convId, onClose }: Props) {
                 </span>
               </div>
               <div style={ca.colBody}>
-                {text[i]}{!done[i] && <span className="caret" />}
+                {text[i] === "" && !done[i] ? (
+                  <span style={{ color: "var(--ink-3)", fontStyle: "italic" }}>awaiting response…</span>
+                ) : (
+                  <>{text[i]}{!done[i] && <span className="caret" />}</>
+                )}
               </div>
             </div>
           ))}

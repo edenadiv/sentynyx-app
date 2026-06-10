@@ -50,6 +50,13 @@ export function VendettaPanel({ spans, open, onClose, aliasMode, setAliasMode }:
           <div style={sx.vStatLbl}>shield</div>
         </div>
       </div>
+      <div style={{
+        padding: "6px 14px", fontSize: 9.5, color: "var(--ink-3)",
+        fontFamily: "'JetBrains Mono', monospace", letterSpacing: 0.5,
+        borderTop: "1px solid rgba(255,255,255,0.05)",
+      }}>
+        hover a token for source + confidence — 100% checksum-validated · 95% structural · 85% context-anchored · 75% heuristic
+      </div>
 
       <div style={{ padding:"0 18px" }}>
         <div style={sx.aliasToggle}>
